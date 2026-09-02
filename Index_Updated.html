@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Calculator & Google Sheets Sync</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Barcode Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        .no-print {
+            display: block;
+        }
+        .print-only {
+            display: none;
+        }
+
+        /* Watermark Styles for Receipt Print Layout */
+        .receipt-container {
+            position: relative;
+            background: white;
+            z-index: 1;
+            overflow: hidden;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .watermark-img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%;
+            max-height: 80%;
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
+            object-fit: contain;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* ================= MEDIA PRINT RULES ================= */
+        @media print {
+            html, body {
+                height: auto !important;
+                width: 100% !important;
+                overflow: visible !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                width: 100% !important;
+            }
+
+            /* --- Mode 1: A4 Print Rules --- */
+            body.print-mode-a4 @page {
+                size: A4 portrait;
+                margin: 0.5cm;
+            }
+
+            /* --- Mode 2: Thermal 80mm Print Rules --- */
+            body.print-mode-thermal @page {
+                size: 80mm auto;
+                margin: 0mm !important;
+            }
+            
+            body.print-mode-thermal .receipt-container {
+                width: 100% !important;
+                max-width: none !important;
+                padding: 0mm !important;
+                border: none !important;
+                margin: 0 !important;
+                color: #000 !important;
+                font-size: 12px !important;
+                line-height: 1.25 !important;
+            }
+            
+            body.print-mode-thermal .watermark-img {
+                display: none !important;
+            }
+            body.print-mode-thermal .thermal-stack {
+                display: block !important;
+            }
+            body.print-mode-thermal .thermal-border-bottom {
+                border-bottom: 1.5px dashed #000 !important;
+                padding-bottom: 5px !important;
+                margin-bottom: 5px !important;
+            }
+            body.print-mode-thermal .thermal-text-lg {
+                font-size: 14px !important;
+                font-weight: 800 !important;
+                text-transform: uppercase;
+            }
+            body.print-mode-thermal .thermal-text-sm {
+                font-size: 11.5px !important;
+                font-weight: 700 !important;
+            }
+            body.print-mode-thermal .thermal-bold {
+                font-weight: 800 !important;
+                font-size: 12px !important;
+            }
+            body.print-mode-thermal .thermal-hide-col-border {
+                border-right: none !important;
+                padding-right: 0 !important;
+            }
+            body.print-mode-thermal #print-grand-total {
+                font-size: 18px !important;
+                font-weight: 900 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-rose-50 min-h-screen p-4 md:p-8 font-sans">
+
+    <!-- ================= APP INTERFACE (NO-PRINT) ================= -->
+    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden no-print border border-red-100">
+        
+        <!-- Header -->
+        <div class="bg-red-600 p-6 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">Exchange Calculator</h1>
+                <p class="text-red-100 text-sm mt-0.5">Scrap Metal Payout & Google Sheets Sync</p>
+            </div>
+            <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
+                <button onclick="openSearchModal()" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center space-x-1 shadow">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <span>Search Record</span>
+                </button>
+                <div class="text-right">
+                    <span class="text-xs text-red-200 block uppercase font-semibold">Exchange ID</span>
+                    <span id="app-exchange-id" class="text-sm font-extrabold bg-red-700 px-3 py-1 rounded-full text-white inline-block mt-0.5">LNex1</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-6">
+
+            <!-- Customer Details Section -->
+            <div class="bg-red-50/50 p-4 rounded-xl border border-red-100 space-y-3">
+                <h3 class="text-sm font-bold text-red-800 uppercase tracking-wide border-b border-red-100 pb-2">Customer Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Name *</label>
+                        <input type="text" id="cust-name" placeholder="Enter name" class="w-full border rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Mobile * (10 Digits)</label>
+                        <input type="text" id="cust-phone" maxlength="10" placeholder="Enter 10 digit mobile number" oninput="validatePhoneInput(this)" class="w-full border rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                        <span id="phone-error" class="text-[11px] text-red-600 font-semibold hidden block mt-1">Mobile number must contain exactly 10 digits.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex border-b border-gray-200">
+                <button id="tab-al" onclick="switchTab('al')" class="flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600">
+                    Aluminum (₹150/kg)
+                </button>
+                <button id="tab-st" onclick="switchTab('st')" class="flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600">
+                    Steel (₹50/kg)
+                </button>
+            </div>
+
+            <!-- Dynamic Weight Inputs Area -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <label class="text-sm font-semibold text-gray-700" id="item-label">Aluminum Item Weights (kg)</label>
+                    <button onclick="addItem()" class="text-xs bg-red-50 text-red-600 font-bold px-3 py-1 rounded-lg border border-red-200 hover:bg-red-100">+ Add Item</button>
+                </div>
+                <div id="item-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
+                    <!-- Dynamic Inputs -->
+                </div>
+            </div>
+
+            <!-- Handles Input -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Number of Handles</label>
+                <div class="flex items-center space-x-4 bg-red-50/40 p-3 rounded-xl border border-red-100">
+                    <button onclick="updateHandles(-1)" class="w-10 h-10 bg-white border border-gray-200 rounded-lg font-bold text-gray-700 shadow-sm active:bg-gray-100">-</button>
+                    <span id="handle-count" class="text-lg font-bold text-gray-800 flex-1 text-center">0</span>
+                    <button onclick="updateHandles(1)" class="w-10 h-10 bg-white border border-gray-200 rounded-lg font-bold text-gray-700 shadow-sm active:bg-gray-100">+</button>
+                </div>
+            </div>
+
+            <!-- Live Summary Cards -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-red-50 border border-red-100 p-3 rounded-xl text-center">
+                    <span class="text-xs text-red-600 font-bold uppercase">Aluminum Total</span>
+                    <div id="al-total-display" class="text-xl font-extrabold text-red-700 mt-1">₹0.00</div>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center">
+                    <span class="text-xs text-slate-600 font-bold uppercase">Steel Total</span>
+                    <div id="st-total-display" class="text-xl font-extrabold text-slate-800 mt-1">₹0.00</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons: Clear, Get Estimation & Submit Order -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="resetForm()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 px-4 rounded-xl border border-gray-300 transition flex items-center justify-center space-x-1.5 sm:w-28">
+                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    <span>Clear</span>
+                </button>
+                <button onclick="handleGetEstimation()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <span>Get Estimation</span>
+                </button>
+                <button onclick="handleSubmitOrder()" id="btn-submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Submit Order</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================= SEARCH MODAL ================= -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-900">Search Transaction & Estimation Records</h3>
+                <button onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">✕</button>
+            </div>
+            
+            <div class="flex space-x-2">
+                <input type="text" id="search-input" placeholder="Enter ID (LNex1 / EST1) or Mobile Number" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                <button onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm">Search</button>
+            </div>
+
+            <div id="search-results-container" class="flex-1 overflow-y-auto space-y-3 pt-2">
+                <div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= SUBMISSION CONFIRMATION & PRINT OPTIONS MODAL ================= -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-center">
+            
+            <!-- Step 1 View: Review & Submit (Order Mode) -->
+            <div id="modal-step-review" class="space-y-4">
+                <h3 class="text-lg font-bold text-gray-900 border-b pb-2">Confirm Transaction Submission</h3>
+                
+                <div class="space-y-2 text-sm text-gray-700 bg-red-50/50 p-3 rounded-xl border border-red-100 text-left">
+                    <div><span class="font-semibold">Exchange ID:</span> <span id="modal-exchange-id" class="font-bold text-red-600"></span></div>
+                    <div><span class="font-semibold">Name:</span> <span id="modal-cust-name"></span></div>
+                    <div><span class="font-semibold">Mobile:</span> <span id="modal-cust-phone"></span></div>
+                    <div class="border-t border-red-100 pt-1 flex justify-between">
+                        <span>Aluminum Net Weight:</span> <span id="modal-al-net" class="font-semibold"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Aluminum Amount:</span> <span id="modal-al-cost" class="font-semibold"></span>
+                    </div>
+                    <div class="border-t border-red-100 pt-1 flex justify-between">
+                        <span>Steel Net Weight:</span> <span id="modal-st-net" class="font-semibold"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Steel Amount:</span> <span id="modal-st-cost" class="font-semibold"></span>
+                    </div>
+                    <div class="border-t border-red-200 pt-2 flex justify-between text-base font-bold text-red-700">
+                        <span>Grand Total Payout:</span> <span id="modal-grand-total"></span>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-semibold text-sm">Cancel</button>
+                    <button onclick="processSubmitOrder()" id="btn-process-submit" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-sm shadow">
+                        <span>Submit</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2 View: Post-Submission or Estimation Print Options -->
+            <div id="modal-step-print" class="hidden space-y-4">
+                <div id="modal-status-icon" class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                </div>
+                <div>
+                    <h3 id="modal-print-title" class="text-lg font-bold text-gray-900">Estimation Ready</h3>
+                    <p id="modal-print-subtitle" class="text-xs font-semibold text-gray-500 mt-1">Choose format to print or submit estimation to Sheets:</p>
+                </div>
+
+                <!-- Numerical Summary Display inside popup -->
+                <div class="bg-amber-50/60 p-3 rounded-2xl border border-amber-200 text-left text-xs space-y-1.5 text-gray-700">
+                    <div class="flex justify-between">
+                        <span>Estimation ID:</span>
+                        <span id="popup-est-id" class="font-bold text-amber-700">EST1</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Aluminum (Net):</span>
+                        <span id="popup-al-net" class="font-bold text-gray-900">0.00 kg</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Steel (Net):</span>
+                        <span id="popup-st-net" class="font-bold text-gray-900">0.00 kg</span>
+                    </div>
+                    <div class="border-t border-amber-200 pt-1.5 flex justify-between font-bold text-sm text-red-700">
+                        <span>Grand Total:</span>
+                        <span id="popup-grand-total">₹0.00</span>
+                    </div>
+                </div>
+
+                <!-- Dedicated Submit for Estimation Action in Popup -->
+                <button onclick="processSubmitEstimation()" id="btn-submit-est" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    <span>Submit Estimation to Sheets</span>
+                </button>
+
+                <div class="flex items-center space-x-3 pt-1">
+                    <button onclick="triggerReceiptPrint('a4')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-sm flex items-center justify-center space-x-2 shadow transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        <span>Print A4</span>
+                    </button>
+                    <button onclick="triggerReceiptPrint('thermal')" class="flex-1 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-1.5 shadow transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <span>Print Thermal (80mm)</span>
+                    </button>
+                </div>
+
+                <button onclick="closeModalOnly()" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-semibold text-sm transition mt-1">Close</button>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
+    <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg receipt-container">
+        <!-- Watermark Image Element for Browser Printing -->
+        <img src="./4L.png" alt="Watermark Logo" class="watermark-img">
+
+        <div class="relative z-10">
+            <!-- Duplicate / Estimation Copy Banner -->
+            <div id="print-duplicate-badge" class="hidden text-center mb-1 bg-red-100 text-red-700 font-extrabold text-xs tracking-widest border border-red-300 py-0.5 rounded uppercase">
+                *** DUPLICATE COPY ***
+            </div>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b-2 border-red-600 pb-2 mb-2 thermal-border-bottom">
+                <div>
+                    <h1 id="receipt-header-title" class="text-lg font-bold uppercase tracking-wide text-red-700 thermal-text-lg">Exchange Material Receipt</h1>
+                    <p class="text-xs text-gray-500 thermal-text-sm" id="print-date"></p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-gray-500 block uppercase font-bold thermal-text-sm" id="print-id-label">Exchange ID</span>
+                    <span id="print-exchange-id" class="text-base font-mono font-bold text-red-700 thermal-text-lg"></span>
+                </div>
+            </div>
+
+            <!-- Customer Header in Receipt -->
+            <div class="bg-red-50/60 p-2 rounded border border-red-100 mb-3 text-xs thermal-text-sm thermal-border-bottom grid grid-cols-2 gap-2">
+                <div><span class="font-bold text-gray-700 thermal-bold">Name:</span> <span id="print-cust-name" class="font-semibold"></span></div>
+                <div><span class="font-bold text-gray-700 thermal-bold">Mobile:</span> <span id="print-cust-phone" class="font-semibold"></span></div>
+            </div>
+
+            <!-- Side-By-Side / Thermal Stack Layout -->
+            <div class="grid grid-cols-2 gap-4 text-xs thermal-stack thermal-text-sm">
+                <!-- Aluminum Column -->
+                <div class="border-r pr-3 thermal-hide-col-border thermal-border-bottom">
+                    <h2 class="font-bold text-xs border-b pb-1 mb-1.5 text-red-700 thermal-text-lg">Aluminum (₹150.00 / kg)</h2>
+                    <div class="space-y-0.5 mb-2" id="print-al-items"></div>
+                    <div class="border-t pt-1.5 space-y-0.5">
+                        <div class="flex justify-between"><span>Gross Weight:</span><span id="print-al-gross">0.00 kg</span></div>
+                        <div class="flex justify-between"><span>Handles (<span id="print-al-hc">0</span>):</span><span id="print-al-hd">-0.00 kg</span></div>
+                        <div class="flex justify-between font-bold pt-0.5 border-t thermal-bold"><span>Net Weight:</span><span id="print-al-net">0.00 kg</span></div>
+                        <div class="flex justify-between font-bold text-xs text-black pt-0.5 thermal-bold"><span>Amount:</span><span id="print-al-cost">₹0.00</span></div>
+                    </div>
+                </div>
+
+                <!-- Steel Column -->
+                <div class="thermal-border-bottom">
+                    <h2 class="font-bold text-xs border-b pb-1 mb-1.5 text-gray-800 thermal-text-lg">Steel (₹50.00 / kg)</h2>
+                    <div class="space-y-0.5 mb-2" id="print-st-items"></div>
+                    <div class="border-t pt-1.5 space-y-0.5">
+                        <div class="flex justify-between"><span>Gross Weight:</span><span id="print-st-gross">0.00 kg</span></div>
+                        <div class="flex justify-between"><span>Handles (<span id="print-st-hc">0</span>):</span><span id="print-st-hd">-0.00 kg</span></div>
+                        <div class="flex justify-between font-bold pt-0.5 border-t thermal-bold"><span>Net Weight:</span><span id="print-st-net">0.00 kg</span></div>
+                        <div class="flex justify-between font-bold text-xs text-black pt-0.5 thermal-bold"><span>Amount:</span><span id="print-st-cost">₹0.00</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grand Total Footer with Barcode -->
+            <div class="border-t-2 border-red-700 mt-3 pt-2 flex justify-between items-center thermal-border-bottom">
+                <div>
+                    <span class="text-xs font-bold uppercase block text-gray-700 thermal-text-sm">Grand Total Exchange Payout:</span>
+                    <span id="print-grand-total" class="text-xl font-extrabold text-red-700 thermal-text-lg">₹0.00</span>
+                </div>
+                <div class="text-right">
+                    <svg id="payout-barcode"></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Logic -->
+    <script>
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbwegrensVdnl4p8TvuwgK2LFy44xtkIOFJpPxVffI5rLF2msJRoZZj9wW5XK8_wzKvGow/exec";
+        const rates = { al: 150.00, st: 50.00 };
+        let activeTab = 'al';
+        let currentExchangeId = 'LNex1';
+        let currentEstId = 'EST1';
+        let localEstCounter = 1;
+        let searchResultsStore = [];
+        let isEstimationMode = false;
+
+        let data = {
+            al: { weights: [0, 0], handles: 0 },
+            st: { weights: [0, 0], handles: 0 }
+        };
+
+        function validatePhoneInput(input) {
+            input.value = input.value.replace(/\D/g, '');
+            const errorMsg = document.getElementById('phone-error');
+            if (input.value.length > 0 && input.value.length !== 10) {
+                errorMsg.classList.remove('hidden');
+                input.classList.add('border-red-500');
+            } else {
+                errorMsg.classList.add('hidden');
+                input.classList.remove('border-red-500');
+            }
+        }
+
+        window.handleIdCallback = function(data) {
+            if (data) {
+                if (data.nextId) {
+                    currentExchangeId = data.nextId;
+                    document.getElementById('app-exchange-id').innerText = currentExchangeId;
+                }
+                if (data.nextEstId) {
+                    currentEstId = data.nextEstId;
+                }
+            }
+        };
+
+        window.handleSearchCallback = function(data) {
+            const container = document.getElementById('search-results-container');
+            const searchBtn = document.getElementById('btn-search-trigger');
+            searchBtn.disabled = false;
+            searchBtn.innerText = "Search";
+
+            if (!data || !data.results || data.results.length === 0) {
+                searchResultsStore = [];
+                container.innerHTML = '<div class="text-center text-xs text-red-500 py-6">No matching records found</div>';
+                return;
+            }
+
+            searchResultsStore = data.results;
+
+            container.innerHTML = data.results.map((r, index) => {
+                const isEstRecord = (r.exchangeId && r.exchangeId.toString().startsWith('EST')) || (r.type === 'ESTIMATE');
+                return `
+                <div class="${isEstRecord ? 'bg-amber-50/60 border-amber-200' : 'bg-red-50/50 border-red-100'} p-3.5 rounded-xl border text-xs space-y-2">
+                    <div class="flex justify-between font-bold ${isEstRecord ? 'text-amber-700' : 'text-red-700'} text-sm">
+                        <span>${r.exchangeId} ${isEstRecord ? '(ESTIMATE)' : ''}</span>
+                        <span>₹${parseFloat(r.grandTotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="text-gray-700"><span class="font-semibold">Name:</span> ${r.customerName} (${r.customerPhone})</div>
+                    <div class="text-gray-500 text-[10px]"><span class="font-semibold">Date:</span> ${r.timestamp}</div>
+                    <div class="border-t ${isEstRecord ? 'border-amber-200' : 'border-red-100'} pt-1.5 flex justify-between text-gray-600">
+                        <span>AL Net: ${parseFloat(r.alNet || 0).toFixed(2)} kg (₹${parseFloat(r.alAmount || 0).toFixed(2)})</span>
+                        <span>Steel Net: ${parseFloat(r.stNet || 0).toFixed(2)} kg (₹${parseFloat(r.stAmount || 0).toFixed(2)})</span>
+                    </div>
+                    <div class="pt-1 flex justify-end space-x-2">
+                        <button onclick="printSearchResult(${index}, 'a4')" class="bg-red-600 hover:bg-red-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1">
+                            <span>A4 Print</span>
+                        </button>
+                        <button onclick="printSearchResult(${index}, 'thermal')" class="bg-gray-800 hover:bg-black text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1">
+                            <span>Thermal Print</span>
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        };
+
+        function setPrintMode(mode) {
+            document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
+            if (mode === 'thermal') {
+                document.body.classList.add('print-mode-thermal');
+            } else {
+                document.body.classList.add('print-mode-a4');
+            }
+        }
+
+        function printSearchResult(index, mode) {
+            const r = searchResultsStore[index];
+            if (!r) return;
+
+            setPrintMode(mode);
+
+            const isEstRecord = (r.exchangeId && r.exchangeId.toString().startsWith('EST')) || (r.type === 'ESTIMATE');
+            isEstimationMode = isEstRecord;
+
+            const duplicateBadge = document.getElementById('print-duplicate-badge');
+            if (isEstRecord) {
+                duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT PAID ***";
+                document.getElementById('receipt-header-title').innerText = "Material Estimation Receipt";
+            } else {
+                duplicateBadge.innerText = "*** DUPLICATE COPY ***";
+                document.getElementById('receipt-header-title').innerText = "Exchange Material Receipt";
+            }
+            duplicateBadge.classList.remove('hidden');
+
+            document.getElementById('print-exchange-id').innerText = r.exchangeId;
+            document.getElementById('print-cust-name').innerText = r.customerName;
+            document.getElementById('print-cust-phone').innerText = r.customerPhone;
+            document.getElementById('print-date').innerText = "Date: " + r.timestamp;
+
+            document.getElementById('print-al-items').innerHTML = `<div class="flex justify-between"><span>Net Summary:</span><span>${parseFloat(r.alNet || 0).toFixed(2)} kg</span></div>`;
+            document.getElementById('print-al-gross').innerText = `${parseFloat(r.alGross || 0).toFixed(2)} kg`;
+            document.getElementById('print-al-hc').innerText = "0";
+            document.getElementById('print-al-hd').innerText = "-0.00 kg";
+            document.getElementById('print-al-net').innerText = `${parseFloat(r.alNet || 0).toFixed(2)} kg`;
+            document.getElementById('print-al-cost').innerText = `₹${parseFloat(r.alAmount || 0).toFixed(2)}`;
+
+            document.getElementById('print-st-items').innerHTML = `<div class="flex justify-between"><span>Net Summary:</span><span>${parseFloat(r.stNet || 0).toFixed(2)} kg</span></div>`;
+            document.getElementById('print-st-gross').innerText = `${parseFloat(r.stGross || 0).toFixed(2)} kg`;
+            document.getElementById('print-st-hc').innerText = "0";
+            document.getElementById('print-st-hd').innerText = "-0.00 kg";
+            document.getElementById('print-st-net').innerText = `${parseFloat(r.stNet || 0).toFixed(2)} kg`;
+            document.getElementById('print-st-cost').innerText = `₹${parseFloat(r.stAmount || 0).toFixed(2)}`;
+
+            const grandTotal = parseFloat(r.grandTotal || 0);
+            document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
+
+            renderSimpleBarcode(grandTotal);
+            window.print();
+        }
+
+        function renderSimpleBarcode(val) {
+            const barcodeElement = document.getElementById("payout-barcode");
+            if (isEstimationMode) {
+                barcodeElement.style.display = 'none';
+                return;
+            }
+
+            barcodeElement.style.display = 'block';
+            try {
+                const formattedVal = Math.round(val).toString();
+                const isThermal = document.body.classList.contains('print-mode-thermal');
+                
+                JsBarcode("#payout-barcode", formattedVal, {
+                    format: "CODE128",
+                    width: isThermal ? 1.6 : 1.5,
+                    height: isThermal ? 32 : 30,
+                    displayValue: true,
+                    fontSize: isThermal ? 10 : 10,
+                    margin: 0
+                });
+            } catch (e) {
+                console.error("Barcode generation error:", e);
+            }
+        }
+
+        function fetchNextExchangeId() {
+            if (!scriptUrl) return;
+            const oldScript = document.getElementById('jsonp-script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'jsonp-script';
+            script.src = scriptUrl + '?callback=handleIdCallback&v=128&t=' + new Date().getTime();
+            document.body.appendChild(script);
+        }
+
+        function executeSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+
+            const searchBtn = document.getElementById('btn-search-trigger');
+            searchBtn.disabled = true;
+            searchBtn.innerText = "Searching...";
+
+            const oldScript = document.getElementById('search-script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'search-script';
+            script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&v=128&t=' + new Date().getTime();
+            document.body.appendChild(script);
+        }
+
+        function openSearchModal() {
+            document.getElementById('search-modal').classList.remove('hidden');
+        }
+
+        function closeSearchModal() {
+            document.getElementById('search-modal').classList.add('hidden');
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>';
+            searchResultsStore = [];
+        }
+
+        function init() {
+            fetchNextExchangeId();
+            render();
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('tab-al').className = tab === 'al' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600";
+            document.getElementById('tab-st').className = tab === 'st' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600";
+            document.getElementById('item-label').innerText = tab === 'al' ? "Aluminum Item Weights (kg)" : "Steel Item Weights (kg)";
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('item-list');
+            container.innerHTML = '';
+            
+            if (data[activeTab].weights.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400 italic py-2 text-center">No items added. Click "+ Add Item" above.</div>';
+            } else {
+                data[activeTab].weights.forEach((w, idx) => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center space-x-2";
+                    div.innerHTML = `
+                        <span class="text-xs text-gray-400 font-medium w-12">Item ${idx + 1}</span>
+                        <input type="number" step="0.01" value="${w === 0 ? '' : w}" oninput="updateWeight(${idx}, this.value)" placeholder="0.00" class="flex-1 border border-gray-200 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                        <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            document.getElementById('handle-count').innerText = data[activeTab].handles;
+            calculate();
+        }
+
+        function addItem() {
+            data[activeTab].weights.push(0);
+            render();
+        }
+
+        function removeItem(idx) {
+            data[activeTab].weights.splice(idx, 1);
+            render();
+        }
+
+        function updateWeight(idx, val) {
+            data[activeTab].weights[idx] = parseFloat(val) || 0;
+            calculate();
+        }
+
+        function updateHandles(change) {
+            data[activeTab].handles = Math.max(0, data[activeTab].handles + change);
+            document.getElementById('handle-count').innerText = data[activeTab].handles;
+            calculate();
+        }
+
+        function computeMaterial(key) {
+            const gross = data[key].weights.reduce((a, b) => a + b, 0);
+            const hd = data[key].handles * 0.10;
+            const net = Math.max(0, gross - hd);
+            const cost = net * rates[key];
+            return { gross, hd, net, cost };
+        }
+
+        function calculate() {
+            const al = computeMaterial('al');
+            const st = computeMaterial('st');
+
+            document.getElementById('al-total-display').innerText = `₹${al.cost.toFixed(2)}`;
+            document.getElementById('st-total-display').innerText = `₹${st.cost.toFixed(2)}`;
+
+            document.getElementById('print-date').innerText = "Date: " + new Date().toLocaleString();
+
+            document.getElementById('print-al-items').innerHTML = data.al.weights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('');
+            document.getElementById('print-al-gross').innerText = `${al.gross.toFixed(2)} kg`;
+            document.getElementById('print-al-hc').innerText = data.al.handles;
+            document.getElementById('print-al-hd').innerText = `-${al.hd.toFixed(2)} kg`;
+            document.getElementById('print-al-net').innerText = `${al.net.toFixed(2)} kg`;
+            document.getElementById('print-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
+
+            document.getElementById('print-st-items').innerHTML = data.st.weights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('');
+            document.getElementById('print-st-gross').innerText = `${st.gross.toFixed(2)} kg`;
+            document.getElementById('print-st-hc').innerText = data.st.handles;
+            document.getElementById('print-st-hd').innerText = `-${st.hd.toFixed(2)} kg`;
+            document.getElementById('print-st-net').innerText = `${st.net.toFixed(2)} kg`;
+            document.getElementById('print-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+
+            const grandTotal = al.cost + st.cost;
+            document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
+
+            document.getElementById('popup-est-id').innerText = currentEstId;
+            document.getElementById('popup-al-net').innerText = `${al.net.toFixed(2)} kg (₹${al.cost.toFixed(2)})`;
+            document.getElementById('popup-st-net').innerText = `${st.net.toFixed(2)} kg (₹${st.cost.toFixed(2)})`;
+            document.getElementById('popup-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
+
+            renderSimpleBarcode(grandTotal);
+        }
+
+        // Action 1: Get Estimation Mode
+        function handleGetEstimation() {
+            isEstimationMode = true;
+            const name = document.getElementById('cust-name').value.trim() || 'Valued Customer';
+            const phone = document.getElementById('cust-phone').value.trim() || 'N/A';
+
+            // Duplicate/Estimate header settings
+            const duplicateBadge = document.getElementById('print-duplicate-badge');
+            duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT PAID ***";
+            duplicateBadge.classList.remove('hidden');
+
+            document.getElementById('receipt-header-title').innerText = "Material Estimation Receipt";
+            document.getElementById('print-id-label').innerText = "Estimation ID";
+            document.getElementById('print-exchange-id').innerText = currentEstId;
+            document.getElementById('print-cust-name').innerText = name;
+            document.getElementById('print-cust-phone').innerText = phone;
+            calculate();
+
+            // Prepare Modal for Estimation Print & Submit
+            document.getElementById('modal-status-icon').className = "w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto";
+            document.getElementById('modal-print-title').innerText = "Estimation Ready";
+            document.getElementById('modal-print-subtitle').innerText = `Estimation ID: ${currentEstId}. Submit to Sheets or choose print format:`;
+
+            const btnSubmitEst = document.getElementById('btn-submit-est');
+            btnSubmitEst.classList.remove('hidden');
+            btnSubmitEst.disabled = false;
+            btnSubmitEst.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg><span>Submit Estimation to Sheets</span>`;
+
+            document.getElementById('modal-step-review').classList.add('hidden');
+            document.getElementById('modal-step-print').classList.remove('hidden');
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        // Submit Estimation to Sheets Function
+        async function processSubmitEstimation() {
+            const name = document.getElementById('cust-name').value.trim() || 'Valued Customer';
+            const phone = document.getElementById('cust-phone').value.trim() || 'N/A';
+
+            const al = computeMaterial('al');
+            const st = computeMaterial('st');
+            const grandTotal = al.cost + st.cost;
+
+            const submitEstBtn = document.getElementById('btn-submit-est');
+            submitEstBtn.disabled = true;
+            submitEstBtn.innerText = "Submitting Estimation...";
+
+            if (scriptUrl) {
+                try {
+                    const formData = new URLSearchParams();
+                    formData.append('timestamp', new Date().toLocaleString());
+                    formData.append('exchangeId', currentEstId); // Stored in Exchange ID Column
+                    formData.append('customerName', name);
+                    formData.append('customerPhone', phone);
+                    formData.append('alGross', al.gross);
+                    formData.append('alNet', al.net);
+                    formData.append('alAmount', al.cost);
+                    formData.append('stGross', st.gross);
+                    formData.append('stNet', st.net);
+                    formData.append('stAmount', st.cost);
+                    formData.append('grandTotal', grandTotal);
+                    formData.append('type', 'ESTIMATE');
+
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData.toString()
+                    });
+                } catch (err) {
+                    console.error("Error saving estimation to Google Sheets:", err);
+                }
+            }
+
+            submitEstBtn.innerText = "✓ Estimation Submitted to Sheets";
+            submitEstBtn.className = "w-full py-3 bg-green-600 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2";
+
+            // Increment local sequence and fetch next ID
+            localEstCounter++;
+            currentEstId = "EST" + localEstCounter;
+            fetchNextExchangeId();
+        }
+
+        // Action 2: Submit Order Mode
+        function handleSubmitOrder() {
+            isEstimationMode = false;
+            const name = document.getElementById('cust-name').value.trim();
+            const phone = document.getElementById('cust-phone').value.trim();
+
+            if (!name) {
+                alert("Error: Please enter Customer Name.");
+                return;
+            }
+
+            if (!/^\d{10}$/.test(phone)) {
+                alert("Error: Mobile Number must be exactly 10 numerical digits.");
+                return;
+            }
+
+            const al = computeMaterial('al');
+            const st = computeMaterial('st');
+
+            document.getElementById('modal-exchange-id').innerText = currentExchangeId;
+            document.getElementById('modal-cust-name').innerText = name;
+            document.getElementById('modal-cust-phone').innerText = phone;
+            document.getElementById('modal-al-net').innerText = `${al.net.toFixed(2)} kg`;
+            document.getElementById('modal-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
+            document.getElementById('modal-st-net').innerText = `${st.net.toFixed(2)} kg`;
+            document.getElementById('modal-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+            document.getElementById('modal-grand-total').innerText = `₹${(al.cost + st.cost).toFixed(2)}`;
+
+            document.getElementById('modal-step-review').classList.remove('hidden');
+            document.getElementById('modal-step-print').classList.add('hidden');
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function closeModalOnly() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            if (!isEstimationMode) {
+                resetForm();
+            }
+        }
+
+        async function processSubmitOrder() {
+            const name = document.getElementById('cust-name').value.trim();
+            const phone = document.getElementById('cust-phone').value.trim();
+
+            const al = computeMaterial('al');
+            const st = computeMaterial('st');
+            const grandTotal = al.cost + st.cost;
+
+            document.getElementById('print-duplicate-badge').classList.add('hidden');
+            document.getElementById('receipt-header-title').innerText = "Exchange Material Receipt";
+            document.getElementById('print-id-label').innerText = "Exchange ID";
+            document.getElementById('print-exchange-id').innerText = currentExchangeId;
+            document.getElementById('print-cust-name').innerText = name;
+            document.getElementById('print-cust-phone').innerText = phone;
+            calculate();
+
+            const submitBtn = document.getElementById('btn-process-submit');
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Submitting...";
+
+            if (scriptUrl) {
+                try {
+                    const formData = new URLSearchParams();
+                    formData.append('timestamp', new Date().toLocaleString());
+                    formData.append('exchangeId', currentExchangeId);
+                    formData.append('customerName', name);
+                    formData.append('customerPhone', phone);
+                    formData.append('alGross', al.gross);
+                    formData.append('alNet', al.net);
+                    formData.append('alAmount', al.cost);
+                    formData.append('stGross', st.gross);
+                    formData.append('stNet', st.net);
+                    formData.append('stAmount', st.cost);
+                    formData.append('grandTotal', grandTotal);
+                    formData.append('type', 'TRANSACTION');
+
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData.toString()
+                    });
+                } catch (err) {
+                    console.error("Error saving to Google Sheets:", err);
+                }
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Submit";
+
+            document.getElementById('btn-submit-est').classList.add('hidden');
+            document.getElementById('modal-status-icon').className = "w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto";
+            document.getElementById('modal-print-title').innerText = "Transaction Saved!";
+            document.getElementById('modal-print-subtitle').innerText = "Choose print paper format to issue receipt:";
+
+            document.getElementById('modal-step-review').classList.add('hidden');
+            document.getElementById('modal-step-print').classList.remove('hidden');
+        }
+
+        function triggerReceiptPrint(mode) {
+            setPrintMode(mode);
+            calculate();
+            window.print();
+            
+            closeModal();
+            if (!isEstimationMode) {
+                setTimeout(() => {
+                    resetForm();
+                }, 500);
+            }
+        }
+
+        function finishOrderWithoutPrint() {
+            closeModalOnly();
+        }
+
+        function resetForm() {
+            document.getElementById('cust-name').value = '';
+            document.getElementById('cust-phone').value = '';
+            const errorMsg = document.getElementById('phone-error');
+            if (errorMsg) errorMsg.classList.add('hidden');
+
+            data = {
+                al: { weights: [0, 0], handles: 0 },
+                st: { weights: [0, 0], handles: 0 }
+            };
+
+            fetchNextExchangeId();
+            render();
+        }
+
+        init();
+    </script>
+</body>
+</html>
