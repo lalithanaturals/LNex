@@ -118,15 +118,6 @@
                 <span>Submit Order</span>
             </button>
 
-            <!-- Google Apps Script URL -->
-            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800 space-y-1">
-                <div class="font-bold flex items-center space-x-1">
-                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span>Google Sheets Script Web App URL:</span>
-                </div>
-                <input type="text" id="script-url" value="https://script.google.com/macros/s/AKfycbwegrensVdnl4p8TvuwgK2LFy44xtkIOFJpPxVffI5rLF2msJRoZZj9wW5XK8_wzKvGow/exec" class="w-full border rounded p-1.5 text-xs text-gray-800 bg-white">
-            </div>
-
         </div>
     </div>
 
@@ -233,6 +224,7 @@
 
     <!-- App Logic -->
     <script>
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbwegrensVdnl4p8TvuwgK2LFy44xtkIOFJpPxVffI5rLF2msJRoZZj9wW5XK8_wzKvGow/exec";
         const rates = { al: 150.00, st: 50.00 };
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
@@ -250,7 +242,6 @@
         };
 
         function fetchNextExchangeId() {
-            const scriptUrl = document.getElementById('script-url').value.trim();
             if (!scriptUrl) return;
 
             const oldScript = document.getElementById('jsonp-script');
@@ -393,7 +384,6 @@
         async function confirmSubmitAndPrint() {
             const name = document.getElementById('cust-name').value.trim();
             const phone = document.getElementById('cust-phone').value.trim();
-            const scriptUrl = document.getElementById('script-url').value.trim();
 
             const al = computeMaterial('al');
             const st = computeMaterial('st');
