@@ -242,7 +242,6 @@
             st: { weights: [0, 0, 0, 0], handles: 0 }
         };
 
-        // Global JSONP callback handler
         window.handleIdCallback = function(data) {
             if (data && data.nextId) {
                 currentExchangeId = data.nextId;
@@ -254,11 +253,9 @@
             const scriptUrl = document.getElementById('script-url').value.trim();
             if (!scriptUrl) return;
 
-            // Remove existing JSONP script tag if present
             const oldScript = document.getElementById('jsonp-script');
             if (oldScript) oldScript.remove();
 
-            // Inject script tag to bypass browser CORS rules
             const script = document.createElement('script');
             script.id = 'jsonp-script';
             script.src = scriptUrl + '?callback=handleIdCallback&t=' + new Date().getTime();
