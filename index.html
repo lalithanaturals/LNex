@@ -41,14 +41,20 @@
     <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden no-print border border-red-100">
         
         <!-- Header -->
-        <div class="bg-red-600 p-6 text-white flex items-center justify-between">
+        <div class="bg-red-600 p-6 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold tracking-wide">Exchange Calculator</h1>
                 <p class="text-red-100 text-sm mt-0.5">Scrap Metal Payout & Google Sheets Sync</p>
             </div>
-            <div class="text-right">
-                <span class="text-xs text-red-200 block uppercase font-semibold">Exchange ID</span>
-                <span id="app-exchange-id" class="text-sm font-extrabold bg-red-700 px-3 py-1 rounded-full text-white inline-block mt-1">LNex1</span>
+            <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
+                <button onclick="openSearchModal()" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center space-x-1 shadow">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <span>Search Record</span>
+                </button>
+                <div class="text-right">
+                    <span class="text-xs text-red-200 block uppercase font-semibold">Exchange ID</span>
+                    <span id="app-exchange-id" class="text-sm font-extrabold bg-red-700 px-3 py-1 rounded-full text-white inline-block mt-0.5">LNex1</span>
+                </div>
             </div>
         </div>
 
@@ -122,6 +128,26 @@
     </div>
 
 
+    <!-- ================= SEARCH MODAL ================= -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-900">Search Transaction Records</h3>
+                <button onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+            </div>
+            
+            <div class="flex space-x-2">
+                <input type="text" id="search-input" placeholder="Enter Exchange ID (LNex1) or Mobile Number" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                <button onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm">Search</button>
+            </div>
+
+            <div id="search-results-container" class="flex-1 overflow-y-auto space-y-3 pt-2">
+                <div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- ================= CONFIRMATION MODAL ================= -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -160,7 +186,6 @@
 
     <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
     <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg">
-        
         <div>
             <!-- Header -->
             <div class="flex items-center justify-between border-b-2 border-red-600 pb-2 mb-2">
@@ -180,9 +205,8 @@
                 <div><span class="font-bold text-gray-700">Mobile:</span> <span id="print-cust-phone" class="font-semibold"></span></div>
             </div>
 
-            <!-- Side-By-Side Layout for Single Page Printing -->
+            <!-- Side-By-Side Layout -->
             <div class="grid grid-cols-2 gap-4 text-xs">
-                
                 <!-- Aluminum Column -->
                 <div class="border-r pr-3">
                     <h2 class="font-bold text-xs border-b pb-1 mb-1.5 text-red-700">Aluminum (₹150.00 / kg)</h2>
@@ -206,7 +230,6 @@
                         <div class="flex justify-between font-bold text-xs text-black pt-0.5"><span>Amount:</span><span id="print-st-cost">₹0.00</span></div>
                     </div>
                 </div>
-
             </div>
 
             <!-- Grand Total Footer with Barcode -->
@@ -229,9 +252,10 @@
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
 
+        // Weight arrays start empty (no defaults)
         let data = {
-            al: { weights: [0, 0, 0, 0], handles: 0 },
-            st: { weights: [0, 0, 0, 0], handles: 0 }
+            al: { weights: [], handles: 0 },
+            st: { weights: [], handles: 0 }
         };
 
         window.handleIdCallback = function(data) {
@@ -241,9 +265,35 @@
             }
         };
 
+        window.handleSearchCallback = function(data) {
+            const container = document.getElementById('search-results-container');
+            const searchBtn = document.getElementById('btn-search-trigger');
+            searchBtn.disabled = false;
+            searchBtn.innerText = "Search";
+
+            if (!data || !data.results || data.results.length === 0) {
+                container.innerHTML = '<div class="text-center text-xs text-red-500 py-6">No matching records found</div>';
+                return;
+            }
+
+            container.innerHTML = data.results.map(r => `
+                <div class="bg-red-50/50 p-3 rounded-xl border border-red-100 text-xs space-y-1">
+                    <div class="flex justify-between font-bold text-red-700">
+                        <span>${r.exchangeId}</span>
+                        <span>₹${parseFloat(r.grandTotal).toFixed(2)}</span>
+                    </div>
+                    <div class="text-gray-700"><span class="font-semibold">Name:</span> ${r.customerName} (${r.customerPhone})</div>
+                    <div class="text-gray-500 text-[10px]"><span class="font-semibold">Date:</span> ${r.timestamp}</div>
+                    <div class="border-t border-red-100 pt-1 flex justify-between text-gray-600">
+                        <span>AL Net: ${parseFloat(r.alNet).toFixed(2)} kg (₹${parseFloat(r.alAmount).toFixed(2)})</span>
+                        <span>Steel Net: ${parseFloat(r.stNet).toFixed(2)} kg (₹${parseFloat(r.stAmount).toFixed(2)})</span>
+                    </div>
+                </div>
+            `).join('');
+        };
+
         function fetchNextExchangeId() {
             if (!scriptUrl) return;
-
             const oldScript = document.getElementById('jsonp-script');
             if (oldScript) oldScript.remove();
 
@@ -251,6 +301,31 @@
             script.id = 'jsonp-script';
             script.src = scriptUrl + '?callback=handleIdCallback&t=' + new Date().getTime();
             document.body.appendChild(script);
+        }
+
+        function executeSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+
+            const searchBtn = document.getElementById('btn-search-trigger');
+            searchBtn.disabled = true;
+            searchBtn.innerText = "Searching...";
+
+            const oldScript = document.getElementById('search-script');
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.id = 'search-script';
+            script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&t=' + new Date().getTime();
+            document.body.appendChild(script);
+        }
+
+        function openSearchModal() {
+            document.getElementById('search-modal').classList.remove('hidden');
+        }
+
+        function closeSearchModal() {
+            document.getElementById('search-modal').classList.add('hidden');
         }
 
         function init() {
@@ -269,16 +344,21 @@
         function render() {
             const container = document.getElementById('item-list');
             container.innerHTML = '';
-            data[activeTab].weights.forEach((w, idx) => {
-                const div = document.createElement('div');
-                div.className = "flex items-center space-x-2";
-                div.innerHTML = `
-                    <span class="text-xs text-gray-400 font-medium w-12">Item ${idx + 1}</span>
-                    <input type="number" step="0.01" value="${w === 0 ? '' : w}" oninput="updateWeight(${idx}, this.value)" placeholder="0.00" class="flex-1 border border-gray-200 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
-                    <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>
-                `;
-                container.appendChild(div);
-            });
+            
+            if (data[activeTab].weights.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400 italic py-2 text-center">No items added. Click "+ Add Item" above.</div>';
+            } else {
+                data[activeTab].weights.forEach((w, idx) => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center space-x-2";
+                    div.innerHTML = `
+                        <span class="text-xs text-gray-400 font-medium w-12">Item ${idx + 1}</span>
+                        <input type="number" step="0.01" value="${w === 0 ? '' : w}" oninput="updateWeight(${idx}, this.value)" placeholder="0.00" class="flex-1 border border-gray-200 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                        <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
 
             document.getElementById('handle-count').innerText = data[activeTab].handles;
             calculate();
@@ -440,8 +520,8 @@
             document.getElementById('cust-phone').value = '';
 
             data = {
-                al: { weights: [0, 0, 0, 0], handles: 0 },
-                st: { weights: [0, 0, 0, 0], handles: 0 }
+                al: { weights: [], handles: 0 },
+                st: { weights: [], handles: 0 }
             };
 
             fetchNextExchangeId();
