@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exchange Calculator & Google Sheets Sync</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Barcode Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         @media print {
@@ -32,10 +30,8 @@
 </head>
 <body class="bg-rose-50 min-h-screen p-4 md:p-8 font-sans">
 
-    <!-- ================= APP INTERFACE (NO-PRINT) ================= -->
     <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden no-print border border-red-100">
         
-        <!-- Header -->
         <div class="bg-red-600 p-6 text-white flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold tracking-wide">Exchange Calculator</h1>
@@ -49,7 +45,6 @@
 
         <div class="p-6 space-y-6">
 
-            <!-- Customer Details Section -->
             <div class="bg-red-50/50 p-4 rounded-xl border border-red-100 space-y-3">
                 <h3 class="text-sm font-bold text-red-800 uppercase tracking-wide border-b border-red-100 pb-2">Customer Information</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -64,7 +59,6 @@
                 </div>
             </div>
 
-            <!-- Tab Switcher -->
             <div class="flex border-b border-gray-200">
                 <button id="tab-al" onclick="switchTab('al')" class="flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600">
                     Aluminum (₹150/kg)
@@ -74,18 +68,15 @@
                 </button>
             </div>
 
-            <!-- Dynamic Weight Inputs Area -->
             <div>
                 <div class="flex justify-between items-center mb-3">
                     <label class="text-sm font-semibold text-gray-700" id="item-label">Aluminum Item Weights (kg)</label>
                     <button onclick="addItem()" class="text-xs bg-red-50 text-red-600 font-bold px-3 py-1 rounded-lg border border-red-200 hover:bg-red-100">+ Add Item</button>
                 </div>
                 <div id="item-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
-                    <!-- Dynamic Inputs -->
-                </div>
+                    </div>
             </div>
 
-            <!-- Handles Input -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Number of Handles</label>
                 <div class="flex items-center space-x-4 bg-red-50/40 p-3 rounded-xl border border-red-100">
@@ -95,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- Live Summary Cards -->
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-red-50 border border-red-100 p-3 rounded-xl text-center">
                     <span class="text-xs text-red-600 font-bold uppercase">Aluminum Total</span>
@@ -107,13 +97,11 @@
                 </div>
             </div>
 
-            <!-- Submit Button -->
             <button onclick="handleSubmitOrder()" id="btn-submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                 <span>Submit Order</span>
             </button>
 
-            <!-- Google Apps Script URL (Auto-filled) -->
             <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800 space-y-1">
                 <div class="font-bold flex items-center space-x-1">
                     <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -126,7 +114,6 @@
     </div>
 
 
-    <!-- ================= CONFIRMATION MODAL ================= -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <h3 class="text-lg font-bold text-gray-900 border-b pb-2">Confirm Exchange & Save</h3>
@@ -162,11 +149,9 @@
     </div>
 
 
-    <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
     <div class="print-only max-w-2xl mx-auto p-4 border-2 border-red-700 rounded-lg">
         
         <div>
-            <!-- Header -->
             <div class="flex items-center justify-between border-b-2 border-red-600 pb-3 mb-3">
                 <div>
                     <h1 class="text-xl font-bold uppercase tracking-wide text-red-700">Exchange Material Receipt</h1>
@@ -178,16 +163,13 @@
                 </div>
             </div>
 
-            <!-- Customer Header in Receipt -->
             <div class="bg-red-50/60 p-2.5 rounded border border-red-100 mb-4 text-xs grid grid-cols-2 gap-2">
                 <div><span class="font-bold text-gray-700">Name:</span> <span id="print-cust-name" class="font-semibold"></span></div>
                 <div><span class="font-bold text-gray-700">Mobile:</span> <span id="print-cust-phone" class="font-semibold"></span></div>
             </div>
 
-            <!-- Side-By-Side Layout for Single Page Printing -->
             <div class="grid grid-cols-2 gap-6 text-xs">
                 
-                <!-- Aluminum Column -->
                 <div class="border-r pr-4">
                     <h2 class="font-bold text-sm border-b pb-1 mb-2 text-red-700">Aluminum (₹150.00 / kg)</h2>
                     <div class="space-y-1 mb-3" id="print-al-items"></div>
@@ -199,7 +181,6 @@
                     </div>
                 </div>
 
-                <!-- Steel Column -->
                 <div>
                     <h2 class="font-bold text-sm border-b pb-1 mb-2 text-gray-800">Steel (₹50.00 / kg)</h2>
                     <div class="space-y-1 mb-3" id="print-st-items"></div>
@@ -213,7 +194,6 @@
 
             </div>
 
-            <!-- Grand Total Footer with Barcode -->
             <div class="border-t-2 border-red-700 mt-4 pt-3 flex justify-between items-center">
                 <div>
                     <span class="text-sm font-bold uppercase block text-gray-700">Grand Total Exchange Payout:</span>
@@ -226,7 +206,6 @@
         </div>
     </div>
 
-    <!-- App Logic -->
     <script>
         const rates = { al: 150.00, st: 50.00 };
         let activeTab = 'al';
@@ -389,25 +368,24 @@
 
             if (scriptUrl) {
                 try {
-                    const payload = {
-                        timestamp: new Date().toLocaleString(),
-                        exchangeId: currentExchangeId,
-                        customerName: name,
-                        customerPhone: phone,
-                        alGross: al.gross,
-                        alNet: al.net,
-                        alAmount: al.cost,
-                        stGross: st.gross,
-                        stNet: st.net,
-                        stAmount: st.cost,
-                        grandTotal: grandTotal
-                    };
+                    const formData = new URLSearchParams();
+                    formData.append('timestamp', new Date().toLocaleString());
+                    formData.append('exchangeId', currentExchangeId);
+                    formData.append('customerName', name);
+                    formData.append('customerPhone', phone);
+                    formData.append('alGross', al.gross);
+                    formData.append('alNet', al.net);
+                    formData.append('alAmount', al.cost);
+                    formData.append('stGross', st.gross);
+                    formData.append('stNet', st.net);
+                    formData.append('stAmount', st.cost);
+                    formData.append('grandTotal', grandTotal);
 
                     await fetch(scriptUrl, {
                         method: 'POST',
                         mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData.toString()
                     });
                 } catch (err) {
                     console.error("Error saving to Google Sheets:", err);
