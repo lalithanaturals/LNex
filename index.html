@@ -252,10 +252,10 @@
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
 
-        // Weight arrays start empty (no defaults)
+        // Starts with exactly 2 default items (Item 1 & Item 2) for both Aluminum and Steel
         let data = {
-            al: { weights: [], handles: 0 },
-            st: { weights: [], handles: 0 }
+            al: { weights: [0, 0], handles: 0 },
+            st: { weights: [0, 0], handles: 0 }
         };
 
         window.handleIdCallback = function(data) {
@@ -520,8 +520,8 @@
             document.getElementById('cust-phone').value = '';
 
             data = {
-                al: { weights: [], handles: 0 },
-                st: { weights: [], handles: 0 }
+                al: { weights: [0, 0], handles: 0 },
+                st: { weights: [0, 0], handles: 0 }
             };
 
             fetchNextExchangeId();
