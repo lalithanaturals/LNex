@@ -33,6 +33,29 @@
         .print-only {
             display: none;
         }
+
+        /* Watermark Styles for Receipt Print Layout */
+        .receipt-container {
+            position: relative;
+            background: white;
+            z-index: 1;
+        }
+        .receipt-container::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            background-image: url('4L.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.12;
+            z-index: -1;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-rose-50 min-h-screen p-4 md:p-8 font-sans">
@@ -185,8 +208,13 @@
 
 
     <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
-    <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg">
+    <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg receipt-container">
         <div>
+            <!-- Duplicate Copy Banner -->
+            <div id="print-duplicate-badge" class="hidden text-center mb-1 bg-red-100 text-red-700 font-extrabold text-xs tracking-widest border border-red-300 py-0.5 rounded uppercase">
+                *** DUPLICATE COPY ***
+            </div>
+
             <!-- Header -->
             <div class="flex items-center justify-between border-b-2 border-red-600 pb-2 mb-2">
                 <div>
@@ -295,7 +323,7 @@
                     <div class="pt-1 text-right">
                         <button onclick="printSearchResult(${index})" class="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                            <span>Print Receipt</span>
+                            <span>Print Duplicate Receipt</span>
                         </button>
                     </div>
                 </div>
@@ -305,6 +333,9 @@
         function printSearchResult(index) {
             const r = searchResultsStore[index];
             if (!r) return;
+
+            // Show Duplicate Copy Badge
+            document.getElementById('print-duplicate-badge').classList.remove('hidden');
 
             document.getElementById('print-exchange-id').innerText = r.exchangeId;
             document.getElementById('print-cust-name').innerText = r.customerName;
@@ -378,7 +409,6 @@
 
         function closeSearchModal() {
             document.getElementById('search-modal').classList.add('hidden');
-            // Reset search input and search results container on close
             document.getElementById('search-input').value = '';
             document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>';
             searchResultsStore = [];
@@ -524,6 +554,9 @@
             const al = computeMaterial('al');
             const st = computeMaterial('st');
             const grandTotal = al.cost + st.cost;
+
+            // Ensure Duplicate Copy Badge is hidden for original prints
+            document.getElementById('print-duplicate-badge').classList.add('hidden');
 
             document.getElementById('print-exchange-id').innerText = currentExchangeId;
             document.getElementById('print-cust-name').innerText = name;
