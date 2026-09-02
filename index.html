@@ -16,6 +16,8 @@
                 background: white !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             .no-print {
                 display: none !important;
@@ -39,22 +41,23 @@
             position: relative;
             background: white;
             z-index: 1;
+            overflow: hidden;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        .receipt-container::before {
-            content: "";
+        .watermark-img {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
-            background-image: url('4L.png');
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
+            width: 65%;
+            max-height: 80%;
             opacity: 0.12;
-            z-index: -1;
+            z-index: 0;
             pointer-events: none;
+            object-fit: contain;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
     </style>
 </head>
@@ -209,7 +212,10 @@
 
     <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
     <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg receipt-container">
-        <div>
+        <!-- Watermark Image Element for Browser Printing -->
+        <img src="./4L.png" alt="Watermark Logo" class="watermark-img">
+
+        <div class="relative z-10">
             <!-- Duplicate Copy Banner -->
             <div id="print-duplicate-badge" class="hidden text-center mb-1 bg-red-100 text-red-700 font-extrabold text-xs tracking-widest border border-red-300 py-0.5 rounded uppercase">
                 *** DUPLICATE COPY ***
@@ -359,20 +365,26 @@
             const grandTotal = parseFloat(r.grandTotal || 0);
             document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
 
+            renderSimpleBarcode(grandTotal);
+
+            window.print();
+        }
+
+        function renderSimpleBarcode(val) {
             try {
-                JsBarcode("#payout-barcode", grandTotal.toFixed(2), {
-                    format: "CODE39",
-                    width: 1.0,
-                    height: 25,
+                // Round value to nearest whole integer for clean CODE128 barcode bars
+                const formattedVal = Math.round(val).toString();
+                JsBarcode("#payout-barcode", formattedVal, {
+                    format: "CODE128",
+                    width: 1.5,
+                    height: 30,
                     displayValue: true,
-                    fontSize: 9,
-                    margin: 0
+                    fontSize: 10,
+                    margin: 2
                 });
             } catch (e) {
                 console.error("Barcode generation error:", e);
             }
-
-            window.print();
         }
 
         function fetchNextExchangeId() {
@@ -382,7 +394,7 @@
 
             const script = document.createElement('script');
             script.id = 'jsonp-script';
-            script.src = scriptUrl + '?callback=handleIdCallback&t=' + new Date().getTime();
+            script.src = scriptUrl + '?callback=handleIdCallback&v=128&t=' + new Date().getTime();
             document.body.appendChild(script);
         }
 
@@ -399,7 +411,7 @@
 
             const script = document.createElement('script');
             script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&t=' + new Date().getTime();
+            script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&v=128&t=' + new Date().getTime();
             document.body.appendChild(script);
         }
 
@@ -505,18 +517,7 @@
             const grandTotal = al.cost + st.cost;
             document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
 
-            try {
-                JsBarcode("#payout-barcode", grandTotal.toFixed(2), {
-                    format: "CODE39",
-                    width: 1.0,
-                    height: 25,
-                    displayValue: true,
-                    fontSize: 9,
-                    margin: 0
-                });
-            } catch (e) {
-                console.error("Barcode generation error:", e);
-            }
+            renderSimpleBarcode(grandTotal);
         }
 
         function handleSubmitOrder() {
@@ -565,7 +566,7 @@
 
             const confirmBtn = document.getElementById('btn-confirm-save');
             confirmBtn.disabled = true;
-            confirmBtn.innerText = "Saving to Sheets...";
+            confirmBtn.innerText = "Saving...";
 
             if (scriptUrl) {
                 try {
