@@ -169,7 +169,7 @@
             
             <div class="flex space-x-2">
                 <input type="text" id="search-input" oninput="onSearchInput()" placeholder="Enter ID (LNex1 / Est1) or Mobile" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-white">
-                <button type="button" onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm active:scale-95">Search</button>
+                <button type="button" onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm active:scale-95">Refresh</button>
             </div>
 
             <div id="search-results-container" class="flex-1 overflow-y-auto space-y-3 pt-2">
@@ -337,7 +337,8 @@
 
     <!-- App Logic -->
     <script>
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbzr33scr_LHP8FSVAUvkg7td0swjJzq21yu_4S5K29BFc1xQlUpdED-D5LkysyQmZIKVw/exec";
+        // Updated script URL
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbwlXTSGn2J6TRfwzFUeE7IfbQ-AJohKybTyAh7Lwh4ZPZ0D4BXsTz6fxvdeO4GiF99f9w/exec";
         const rates = { al: 150.00, st: 50.00 };
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
@@ -466,7 +467,7 @@
             const searchBtn = document.getElementById('btn-search-trigger');
             if (searchBtn) {
                 searchBtn.disabled = false;
-                searchBtn.innerText = "Search";
+                searchBtn.innerText = "Refresh";
             }
 
             let records = [];
@@ -742,7 +743,7 @@
 
             const script = document.createElement('script');
             script.id = 'jsonp-script';
-            script.src = scriptUrl + '?callback=handleIdCallback&v=142&t=' + new Date().getTime();
+            script.src = scriptUrl + '?callback=handleIdCallback&t=' + new Date().getTime();
             
             script.onerror = () => {
                 unlockAppInputs();
@@ -761,7 +762,7 @@
             const searchBtn = document.getElementById('btn-search-trigger');
             if (searchBtn) {
                 searchBtn.disabled = true;
-                searchBtn.innerText = "Searching...";
+                searchBtn.innerText = "Loading...";
             }
 
             const oldScript = document.getElementById('search-script');
@@ -769,14 +770,14 @@
 
             const script = document.createElement('script');
             script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=142&t=' + new Date().getTime();
+            script.src = scriptUrl + '?action=search&callback=handleSearchCallback&t=' + new Date().getTime();
             
             script.onerror = () => {
                 if (searchBtn) {
                     searchBtn.disabled = false;
-                    searchBtn.innerText = "Search";
+                    searchBtn.innerText = "Refresh";
                 }
-                document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-red-500 py-6">Connection error loading records. Please check your Google Apps Script URL.</div>';
+                document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-red-500 py-6">Connection error loading records. Please check your deployment URL.</div>';
             };
 
             document.body.appendChild(script);
@@ -872,7 +873,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const handlePlusBtn = document.getElementById('btn-search-modal');
             const handlePlus = document.getElementById('btn-handle-plus');
             if (handlePlus) {
                 handlePlus.addEventListener('keydown', (event) => {
@@ -1152,7 +1152,7 @@
 
             document.getElementById('modal-step-review').classList.remove('hidden');
             document.getElementById('modal-step-print').classList.add('hidden');
-            document.getElementById('confirm-modal').classList.add('hidden');
+            document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
         function closeModal() {
@@ -1178,7 +1178,7 @@
 
             const submitBtn = document.getElementById('btn-process-submit');
             submitBtn.disabled = true;
-            submitBtn.innerText = "Submitting to Sheets.";
+            submitBtn.innerText = "Submitting to Sheets...";
 
             const submissionPromise = (async () => {
                 if (scriptUrl) {
