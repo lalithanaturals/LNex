@@ -486,10 +486,7 @@
         };
 
         function onSearchInput() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                executeSearch();
-            }, 300); // 300ms debounce so it triggers instantly as user types without spamming requests
+            renderSearchResults();
         }
 
         function renderSearchResults() {
@@ -498,7 +495,7 @@
 
             let filteredRecords = searchResultsStore;
             if (query !== '') {
-                filteredRecords = searchResultsStore.filter(r => {
+                filteredRecords = searchResultsStore.items ? searchResultsStore : searchResultsStore.filter(r => {
                     const recordId = (r.estId || r.exchangeId || r.id || '').toString().toLowerCase();
                     const phone = (r.customerPhone || r.phone || '').toString().toLowerCase();
                     const name = (r.customerName || r.name || '').toString().toLowerCase();
@@ -519,8 +516,10 @@
                 const isEstRecord = (r.estId && r.estId.toString().trim() !== "") || (r.type === 'ESTIMATE');
                 const isConverted = r.converted === true || r.converted === 'true' || (r.exchangeId && r.exchangeId.toString().trim() !== "");
                 
-                const alNetVal = parseFloat(r.alNet !== undefined ? r.alNet : (r.alGross || 0));
-                const stNetVal = parseFloat(r.stNet !== undefined ? r.stNet : (r.stGross || 0));
+                const alGrossVal = parseFloat(r.alGross || 0);
+                const stGrossVal = parseFloat(r.stGross || 0);
+                const alNetVal = parseFloat(r.alNet !== undefined ? r.alNet : alGrossVal);
+                const stNetVal = parseFloat(r.stNet !== undefined ? r.stNet : stGrossVal);
                 const alAmtVal = parseFloat(r.alAmount !== undefined ? r.alAmount : (alNetVal * 150));
                 const stAmtVal = parseFloat(r.stAmount !== undefined ? r.stAmount : (stNetVal * 50));
                 
@@ -743,7 +742,7 @@
 
             const script = document.createElement('script');
             script.id = 'jsonp-script';
-            script.src = scriptUrl + '?callback=handleIdCallback&v=140&t=' + new Date().getTime();
+            script.src = scriptUrl + '?callback=handleIdCallback&v=141&t=' + new Date().getTime();
             
             script.onerror = () => {
                 unlockAppInputs();
@@ -770,7 +769,7 @@
 
             const script = document.createElement('script');
             script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=140&t=' + new Date().getTime();
+            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=141&t=' + new Date().getTime();
             
             script.onerror = () => {
                 if (searchBtn) {
@@ -1208,7 +1207,7 @@
                             body: formData.toString()
                         });
                     } catch (err) {
-                        console.error("Error saving to Google Sheets:", err);
+                        console.error("Error saving to Google Sheets:", err	);
                     }
                 }
             })();
