@@ -168,12 +168,11 @@
             </div>
             
             <div class="flex space-x-2">
-                <input type="text" id="search-input" oninput="onSearchInput()" placeholder="Enter ID (LNex1 / Est1) or Mobile" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-white">
-                <button type="button" onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm active:scale-95">Refresh</button>
+                <input type="text" id="search-input" oninput="onSearchInput()" placeholder="Start typing ID or Mobile..." class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-white">
             </div>
 
             <div id="search-results-container" class="flex-1 overflow-y-auto space-y-3 pt-2">
-                <div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>
+                <div class="text-center text-xs text-gray-400 py-6">Type to search records instantly...</div>
             </div>
         </div>
     </div>
@@ -337,8 +336,7 @@
 
     <!-- App Logic -->
     <script>
-        // Updated script URL
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbwlXTSGn2J6TRfwzFUeE7IfbQ-AJohKybTyAh7Lwh4ZPZ0D4BXsTz6fxvdeO4GiF99f9w/exec";
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbwSVqtFdq5ODOfI7_PLs5xUL4iBVqZrSkIH4THKGFuioSm1QfoFw6e_IfZ8Isy5FY1PoQ/exec";
         const rates = { al: 150.00, st: 50.00 };
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
@@ -348,7 +346,7 @@
         let displayLimit = 4;
         let isEstimationMode = false;
         let isAppLoaded = false;
-        let searchTimeout = null;
+        let searchDebounceTimer = null;
 
         let data = {
             al: { weights: [0, 0], handles: 0 },
@@ -464,12 +462,6 @@
         };
 
         window.handleSearchCallback = function(res) {
-            const searchBtn = document.getElementById('btn-search-trigger');
-            if (searchBtn) {
-                searchBtn.disabled = false;
-                searchBtn.innerText = "Refresh";
-            }
-
             let records = [];
             if (res) {
                 if (Array.isArray(res)) {
@@ -487,7 +479,31 @@
         };
 
         function onSearchInput() {
-            renderSearchResults();
+            clearTimeout(searchDebounceTimer);
+            const query = document.getElementById('search-input').value.trim();
+            
+            if (query === '') {
+                document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Type to search records instantly...</div>';
+                searchResultsStore = [];
+                return;
+            }
+
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Searching...</div>';
+
+            searchDebounceTimer = setTimeout(() => {
+                const oldScript = document.getElementById('search-script');
+                if (oldScript) oldScript.remove();
+
+                const script = document.createElement('script');
+                script.id = 'search-script';
+                script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&t=' + new Date().getTime();
+                
+                script.onerror = () => {
+                    document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-red-500 py-6">Connection error loading records. Please check your deployment URL.</div>';
+                };
+
+                document.body.appendChild(script);
+            }, 300); // Triggers automatically after 300ms of typing
         }
 
         function renderSearchResults() {
@@ -758,31 +774,6 @@
             }, 3000);
         }
 
-        function executeSearch() {
-            const searchBtn = document.getElementById('btn-search-trigger');
-            if (searchBtn) {
-                searchBtn.disabled = true;
-                searchBtn.innerText = "Loading...";
-            }
-
-            const oldScript = document.getElementById('search-script');
-            if (oldScript) oldScript.remove();
-
-            const script = document.createElement('script');
-            script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&callback=handleSearchCallback&t=' + new Date().getTime();
-            
-            script.onerror = () => {
-                if (searchBtn) {
-                    searchBtn.disabled = false;
-                    searchBtn.innerText = "Refresh";
-                }
-                document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-red-500 py-6">Connection error loading records. Please check your deployment URL.</div>';
-            };
-
-            document.body.appendChild(script);
-        }
-
         function openSearchModal() {
             document.getElementById('search-modal').classList.remove('hidden');
             setTimeout(() => {
@@ -791,15 +782,14 @@
                 searchInput.value = '';
             }, 100);
 
-            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>';
-            
-            executeSearch();
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Type to search records instantly...</div>';
+            searchResultsStore = [];
         }
 
         function closeSearchModal() {
             document.getElementById('search-modal').classList.add('hidden');
             document.getElementById('search-input').value = '';
-            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>';
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Type to search records instantly...</div>';
             searchResultsStore = [];
             
             setTimeout(() => {
