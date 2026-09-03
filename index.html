@@ -503,7 +503,7 @@
                 };
 
                 document.body.appendChild(script);
-            }, 300); // Triggers automatically after 300ms of typing
+            }, 300);
         }
 
         function renderSearchResults() {
@@ -535,10 +535,12 @@
                 
                 const alGrossVal = parseFloat(r.alGross || 0);
                 const stGrossVal = parseFloat(r.stGross || 0);
-                const alNetVal = parseFloat(r.alNet !== undefined ? r.alNet : alGrossVal);
-                const stNetVal = parseFloat(r.stNet !== undefined ? r.stNet : stGrossVal);
-                const alAmtVal = parseFloat(r.alAmount !== undefined ? r.alAmount : (alNetVal * 150));
-                const stAmtVal = parseFloat(r.stAmount !== undefined ? r.stAmount : (stNetVal * 50));
+                const alNetVal = parseFloat(r.alNet !== undefined && !isNaN(r.alNet) ? r.alNet : alGrossVal);
+                const stNetVal = parseFloat(r.stNet !== undefined && !isNaN(r.stNet) ? r.stNet : stGrossVal);
+                
+                // Fixed NaN issue for Steel Amount fallback calculation
+                const alAmtVal = parseFloat(r.alAmount !== undefined && !isNaN(r.alAmount) ? r.alAmount : (alNetVal * 150));
+                const stAmtVal = parseFloat(r.stAmount !== undefined && !isNaN(r.stAmount) ? r.stAmount : (stNetVal * 50));
                 
                 let totalVal = parseFloat(r.grandTotal || r.amount || 0);
                 if (!totalVal || totalVal === 0 || isNaN(totalVal)) {
@@ -657,11 +659,11 @@
             document.getElementById('print-date').innerText = "Date: " + (r.timestamp || r.date || '');
 
             const alGross = parseFloat(r.alGross || 0);
-            const alNet = parseFloat(r.alNet !== undefined ? r.alNet : alGross);
-            const alAmt = parseFloat(r.alAmount !== undefined ? r.alAmount : (alNet * 150));
+            const alNet = parseFloat(r.alNet !== undefined && !isNaN(r.alNet) ? r.alNet : alGross);
+            const alAmt = parseFloat(r.alAmount !== undefined && !isNaN(r.alAmount) ? r.alAmount : (alNet * 150));
             const stGross = parseFloat(r.stGross || 0);
-            const stNet = parseFloat(r.stNet !== undefined ? r.stNet : stGross);
-            const stAmt = parseFloat(r.stAmount !== undefined ? r.stAmount : (stNet * 50));
+            const stNet = parseFloat(r.stNet !== undefined && !isNaN(r.stNet) ? r.stNet : stGross);
+            const stAmt = parseFloat(r.stAmount !== undefined && !isNaN(r.stAmount) ? r.stAmount : (stNet * 50));
 
             const alSection = document.getElementById('print-al-section');
             const stSection = document.getElementById('print-st-section');
@@ -1142,7 +1144,7 @@
 
             document.getElementById('modal-step-review').classList.remove('hidden');
             document.getElementById('modal-step-print').classList.add('hidden');
-            document.getElementById('confirm-modal').classList.remove('hidden');
+            document.getElementById('confirm-modal').classList.add('hidden');
         }
 
         function closeModal() {
