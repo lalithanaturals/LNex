@@ -495,7 +495,7 @@
 
             let filteredRecords = searchResultsStore;
             if (query !== '') {
-                filteredRecords = searchResultsStore.items ? searchResultsStore : searchResultsStore.filter(r => {
+                filteredRecords = searchResultsStore.filter(r => {
                     const recordId = (r.estId || r.exchangeId || r.id || '').toString().toLowerCase();
                     const phone = (r.customerPhone || r.phone || '').toString().toLowerCase();
                     const name = (r.customerName || r.name || '').toString().toLowerCase();
@@ -511,7 +511,7 @@
             const visibleResults = filteredRecords.slice(0, displayLimit);
             const hasMore = filteredRecords.length > displayLimit;
 
-            let html = visibleResults.map((r, index) => {
+            let html = visibleResults.map((r) => {
                 const recordId = r.estId || r.exchangeId || r.id || 'N/A';
                 const isEstRecord = (r.estId && r.estId.toString().trim() !== "") || (r.type === 'ESTIMATE');
                 const isConverted = r.converted === true || r.converted === 'true' || (r.exchangeId && r.exchangeId.toString().trim() !== "");
@@ -742,7 +742,7 @@
 
             const script = document.createElement('script');
             script.id = 'jsonp-script';
-            script.src = scriptUrl + '?callback=handleIdCallback&v=141&t=' + new Date().getTime();
+            script.src = scriptUrl + '?callback=handleIdCallback&v=142&t=' + new Date().getTime();
             
             script.onerror = () => {
                 unlockAppInputs();
@@ -769,7 +769,7 @@
 
             const script = document.createElement('script');
             script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=141&t=' + new Date().getTime();
+            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=142&t=' + new Date().getTime();
             
             script.onerror = () => {
                 if (searchBtn) {
@@ -872,9 +872,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const handlePlusBtn = document.getElementById('btn-handle-plus');
-            if (handlePlusBtn) {
-                handlePlusBtn.addEventListener('keydown', (event) => {
+            const handlePlusBtn = document.getElementById('btn-search-modal');
+            const handlePlus = document.getElementById('btn-handle-plus');
+            if (handlePlus) {
+                handlePlus.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter') {
                         event.preventDefault();
                         updateHandles(1);
@@ -1151,7 +1152,7 @@
 
             document.getElementById('modal-step-review').classList.remove('hidden');
             document.getElementById('modal-step-print').classList.add('hidden');
-            document.getElementById('confirm-modal').classList.remove('hidden');
+            document.getElementById('confirm-modal').classList.add('hidden');
         }
 
         function closeModal() {
@@ -1177,7 +1178,7 @@
 
             const submitBtn = document.getElementById('btn-process-submit');
             submitBtn.disabled = true;
-            submitBtn.innerText = "Submitting to Sheets...";
+            submitBtn.innerText = "Submitting to Sheets.";
 
             const submissionPromise = (async () => {
                 if (scriptUrl) {
@@ -1207,7 +1208,7 @@
                             body: formData.toString()
                         });
                     } catch (err) {
-                        console.error("Error saving to Google Sheets:", err	);
+                        console.error("Error saving to Google Sheets:", err);
                     }
                 }
             })();
