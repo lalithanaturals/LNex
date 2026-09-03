@@ -2,21 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Exchange Calculator & Google Sheets Sync</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Barcode Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
-        .no-print {
-            display: block;
-        }
-        .print-only {
-            display: none;
-        }
+        .no-print { display: block; }
+        .print-only { display: none; }
 
-        /* Watermark Styles for Receipt Print Layout */
         .receipt-container {
             position: relative;
             background: white;
@@ -40,7 +35,6 @@
             print-color-adjust: exact !important;
         }
 
-        /* ================= MEDIA PRINT RULES ================= */
         @media print {
             html, body {
                 height: auto !important;
@@ -52,301 +46,240 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            .no-print {
-                display: none !important;
-            }
-            .print-only {
-                display: block !important;
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-                width: 100% !important;
-            }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; page-break-inside: avoid !important; break-inside: avoid !important; width: 100% !important; }
 
-            /* --- Mode 1: A4 Print Rules --- */
-            body.print-mode-a4 @page {
-                size: A4 portrait;
-                margin: 0.5cm;
-            }
-
-            /* --- Mode 2: Thermal 80mm Print Rules --- */
-            body.print-mode-thermal @page {
-                size: 80mm auto;
-                margin: 0mm !important;
-            }
+            body.print-mode-a4 @page { size: A4 portrait; margin: 0; }
+            body.print-mode-thermal @page { size: 80mm auto; margin: 0mm !important; }
             
             body.print-mode-thermal .receipt-container {
-                width: 100% !important;
-                max-width: none !important;
-                padding: 0mm !important;
-                border: none !important;
-                margin: 0 !important;
-                color: #000 !important;
-                font-size: 12px !important;
-                line-height: 1.25 !important;
+                width: 100% !important; max-width: none !important; padding: 0mm !important; border: none !important; margin: 0 !important; color: #000 !important; font-size: 12px !important; line-height: 1.25 !important;
             }
-            
-            body.print-mode-thermal .watermark-img {
-                display: none !important;
-            }
-            body.print-mode-thermal .thermal-stack {
-                display: block !important;
-            }
-            body.print-mode-thermal .thermal-border-bottom {
-                border-bottom: 1.5px dashed #000 !important;
-                padding-bottom: 5px !important;
-                margin-bottom: 5px !important;
-            }
-            body.print-mode-thermal .thermal-text-lg {
-                font-size: 14px !important;
-                font-weight: 800 !important;
-                text-transform: uppercase;
-            }
-            body.print-mode-thermal .thermal-text-sm {
-                font-size: 11.5px !important;
-                font-weight: 700 !important;
-            }
-            body.print-mode-thermal .thermal-bold {
-                font-weight: 800 !important;
-                font-size: 12px !important;
-            }
-            body.print-mode-thermal .thermal-hide-col-border {
-                border-right: none !important;
-                padding-right: 0 !important;
-            }
-            body.print-mode-thermal #print-grand-total {
-                font-size: 18px !important;
-                font-weight: 900 !important;
-            }
+            body.print-mode-thermal .watermark-img { display: none !important; }
+            body.print-mode-thermal .thermal-stack { display: block !important; }
+            body.print-mode-thermal .thermal-border-bottom { border-bottom: 1.5px dashed #000 !important; padding-bottom: 5px !important; margin-bottom: 5px !important; }
+            body.print-mode-thermal .thermal-text-lg { font-size: 14px !important; font-weight: 800 !important; text-transform: uppercase; }
+            body.print-mode-thermal .thermal-text-sm { font-size: 11.5px !important; font-weight: 700 !important; }
+            body.print-mode-thermal .thermal-bold { font-weight: 800 !important; font-size: 12px !important; }
+            body.print-mode-thermal .thermal-hide-col-border { border-right: none !important; padding-right: 0 !important; }
+            body.print-mode-thermal #print-grand-total { font-size: 18px !important; font-weight: 900 !important; }
         }
     </style>
 </head>
-<body class="bg-rose-50 min-h-screen p-4 md:p-8 font-sans">
+<body class="bg-rose-50 min-h-screen p-2 sm:p-4 md:p-8 font-sans">
+
+    <!-- FULL PAGE LOADING OVERLAY -->
+    <div id="page-loader" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center space-y-4 transition-opacity duration-300">
+        <div class="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm font-bold text-gray-700 tracking-wide">Loading application and IDs...</p>
+    </div>
 
     <!-- ================= APP INTERFACE (NO-PRINT) ================= -->
     <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden no-print border border-red-100">
-        
-        <!-- Header -->
-        <div class="bg-red-600 p-6 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="bg-red-600 p-4 sm:p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold tracking-wide">Exchange Calculator</h1>
-                <p class="text-red-100 text-sm mt-0.5">Scrap Metal Payout & Google Sheets Sync</p>
+                <span class="text-xs font-semibold uppercase tracking-wider text-red-200 block mb-0.5">Lalitha Naturals</span>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-wide">Exchange Calculator</h1>
             </div>
-            <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
-                <button onclick="openSearchModal()" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center space-x-1 shadow">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <span>Search Record</span>
+            <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end">
+                <button type="button" id="btn-search-modal" onclick="openSearchModal()" disabled class="bg-red-700 opacity-50 cursor-not-allowed text-white font-bold px-3 py-2 rounded-lg text-xs flex items-center space-x-1 shadow relative z-20">
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <span class="pointer-events-none">Search Record</span>
                 </button>
                 <div class="text-right">
-                    <span class="text-xs text-red-200 block uppercase font-semibold">Exchange ID</span>
-                    <span id="app-exchange-id" class="text-sm font-extrabold bg-red-700 px-3 py-1 rounded-full text-white inline-block mt-0.5">LNex1</span>
+                    <span class="text-xs text-red-200 block uppercase font-semibold">Next ID</span>
+                    <span id="app-exchange-id" class="text-sm font-extrabold bg-red-700 px-2.5 py-1 rounded-full text-white inline-block mt-0.5">...</span>
                 </div>
             </div>
         </div>
 
-        <div class="p-6 space-y-6">
-
-            <!-- Customer Details Section -->
-            <div class="bg-red-50/50 p-4 rounded-xl border border-red-100 space-y-3">
+        <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div class="bg-red-50/50 p-3 sm:p-4 rounded-xl border border-red-100 space-y-3">
                 <h3 class="text-sm font-bold text-red-800 uppercase tracking-wide border-b border-red-100 pb-2">Customer Information</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 mb-1">Name *</label>
-                        <input type="text" id="cust-name" placeholder="Enter name" class="w-full border rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                        <input type="text" id="cust-name" disabled placeholder="Loading..." autocapitalize="words" onkeydown="handleNameKeydown(event)" class="w-full border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-gray-100 cursor-not-allowed">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 mb-1">Mobile * (10 Digits)</label>
-                        <input type="text" id="cust-phone" maxlength="10" placeholder="Enter 10 digit mobile number" oninput="validatePhoneInput(this)" class="w-full border rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
+                        <input type="text" id="cust-phone" disabled inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="Loading..." oninput="validatePhoneInput(this)" onkeydown="handlePhoneKeydown(event)" class="w-full border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-gray-100 cursor-not-allowed">
                         <span id="phone-error" class="text-[11px] text-red-600 font-semibold hidden block mt-1">Mobile number must contain exactly 10 digits.</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Tab Switcher -->
             <div class="flex border-b border-gray-200">
-                <button id="tab-al" onclick="switchTab('al')" class="flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600">
-                    Aluminum (₹150/kg)
-                </button>
-                <button id="tab-st" onclick="switchTab('st')" class="flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600">
-                    Steel (₹50/kg)
-                </button>
+                <button type="button" id="tab-al" onclick="switchTab('al')" class="flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600 text-sm sm:text-base">Aluminum (₹150/kg)</button>
+                <button type="button" id="tab-st" onclick="switchTab('st')" class="flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600 text-sm sm:text-base">Steel (₹50/kg)</button>
             </div>
 
-            <!-- Dynamic Weight Inputs Area -->
             <div>
                 <div class="flex justify-between items-center mb-3">
                     <label class="text-sm font-semibold text-gray-700" id="item-label">Aluminum Item Weights (kg)</label>
-                    <button onclick="addItem()" class="text-xs bg-red-50 text-red-600 font-bold px-3 py-1 rounded-lg border border-red-200 hover:bg-red-100">+ Add Item</button>
+                    <button type="button" id="btn-add-item" onclick="addItem()" disabled class="text-xs bg-gray-100 text-gray-400 font-bold px-3 py-1.5 rounded-lg border border-gray-200 cursor-not-allowed">+ Add Item</button>
                 </div>
-                <div id="item-list" class="space-y-2 max-h-60 overflow-y-auto p-1">
-                    <!-- Dynamic Inputs -->
-                </div>
+                <div id="item-list" class="space-y-2.5 max-h-60 overflow-y-auto p-1"></div>
             </div>
 
-            <!-- Handles Input -->
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Number of Handles</label>
                 <div class="flex items-center space-x-4 bg-red-50/40 p-3 rounded-xl border border-red-100">
-                    <button onclick="updateHandles(-1)" class="w-10 h-10 bg-white border border-gray-200 rounded-lg font-bold text-gray-700 shadow-sm active:bg-gray-100">-</button>
+                    <button type="button" id="btn-handle-minus" disabled onclick="updateHandles(-1)" class="w-11 h-11 bg-gray-100 border border-gray-200 rounded-xl font-bold text-gray-300 cursor-not-allowed flex items-center justify-center text-lg">-</button>
                     <span id="handle-count" class="text-lg font-bold text-gray-800 flex-1 text-center">0</span>
-                    <button onclick="updateHandles(1)" class="w-10 h-10 bg-white border border-gray-200 rounded-lg font-bold text-gray-700 shadow-sm active:bg-gray-100">+</button>
+                    <button type="button" id="btn-handle-plus" disabled onclick="updateHandles(1)" class="w-11 h-11 bg-gray-100 border border-gray-200 rounded-xl font-bold text-gray-300 cursor-not-allowed flex items-center justify-center text-lg">+</button>
                 </div>
             </div>
 
-            <!-- Live Summary Cards -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-red-50 border border-red-100 p-3 rounded-xl text-center">
-                    <span class="text-xs text-red-600 font-bold uppercase">Aluminum Total</span>
-                    <div id="al-total-display" class="text-xl font-extrabold text-red-700 mt-1">₹0.00</div>
+            <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                <div class="bg-red-50 border border-red-100 p-3 sm:p-4 rounded-xl text-center">
+                    <span class="text-[11px] sm:text-xs text-red-600 font-bold uppercase tracking-wide">Aluminum Total</span>
+                    <div id="al-total-display" class="text-lg sm:text-xl font-extrabold text-red-700 mt-1">₹0.00</div>
                 </div>
-                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center">
-                    <span class="text-xs text-slate-600 font-bold uppercase">Steel Total</span>
-                    <div id="st-total-display" class="text-xl font-extrabold text-slate-800 mt-1">₹0.00</div>
+                <div class="bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-xl text-center">
+                    <span class="text-[11px] sm:text-xs text-slate-600 font-bold uppercase tracking-wide">Steel Total</span>
+                    <div id="st-total-display" class="text-lg sm:text-xl font-extrabold text-slate-800 mt-1">₹0.00</div>
                 </div>
             </div>
 
-            <!-- Action Buttons: Clear, Get Estimation & Submit Order -->
-            <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="resetForm()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 px-4 rounded-xl border border-gray-300 transition flex items-center justify-center space-x-1.5 sm:w-28">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    <span>Clear</span>
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" id="btn-refresh" disabled onclick="resetForm()" class="bg-gray-100 text-gray-400 font-bold py-3.5 px-4 rounded-xl border border-gray-300 cursor-not-allowed flex items-center justify-center space-x-1.5 sm:w-28">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Refresh</span>
                 </button>
-                <button onclick="handleGetEstimation()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                <button type="button" id="btn-estimation" disabled onclick="handleGetEstimation()" class="flex-1 bg-gray-200 text-gray-400 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed flex items-center justify-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                     <span>Get Estimation</span>
                 </button>
-                <button onclick="handleSubmitOrder()" id="btn-submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                <button type="button" id="btn-submit" disabled onclick="handleSubmitOrder()" class="flex-1 bg-gray-200 text-gray-400 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed flex items-center justify-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                     <span>Submit Order</span>
                 </button>
             </div>
-
         </div>
     </div>
 
-
-    <!-- ================= SEARCH MODAL ================= -->
-    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+    <!-- SEARCH MODAL -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 hidden no-print">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-lg font-bold text-gray-900">Search Transaction & Estimation Records</h3>
-                <button onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">✕</button>
+                <h3 class="text-base sm:text-lg font-bold text-gray-900">Search Records & Estimates</h3>
+                <button type="button" onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">✕</button>
             </div>
             
             <div class="flex space-x-2">
-                <input type="text" id="search-input" placeholder="Enter ID (LNex1 / EST1) or Mobile Number" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
-                <button onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm">Search</button>
+                <input type="text" id="search-input" oninput="onSearchInput()" placeholder="Enter ID (LNex1 / Est1) or Mobile" class="flex-1 border rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none bg-white">
+                <button type="button" onclick="executeSearch()" id="btn-search-trigger" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm active:scale-95">Search</button>
             </div>
 
             <div id="search-results-container" class="flex-1 overflow-y-auto space-y-3 pt-2">
-                <div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>
+                <div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>
             </div>
         </div>
     </div>
 
-
-    <!-- ================= SUBMISSION CONFIRMATION & PRINT OPTIONS MODAL ================= -->
-    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden no-print">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-center">
+    <!-- SUBMISSION CONFIRMATION MODAL -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 hidden no-print">
+        <div class="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 text-center">
             
             <!-- Step 1 View: Review & Submit (Order Mode) -->
             <div id="modal-step-review" class="space-y-4">
-                <h3 class="text-lg font-bold text-gray-900 border-b pb-2">Confirm Transaction Submission</h3>
+                <h3 class="text-base sm:text-lg font-bold text-gray-900 border-b pb-2">Confirm Transaction Submission</h3>
                 
-                <div class="space-y-2 text-sm text-gray-700 bg-red-50/50 p-3 rounded-xl border border-red-100 text-left">
-                    <div><span class="font-semibold">Exchange ID:</span> <span id="modal-exchange-id" class="font-bold text-red-600"></span></div>
-                    <div><span class="font-semibold">Name:</span> <span id="modal-cust-name"></span></div>
-                    <div><span class="font-semibold">Mobile:</span> <span id="modal-cust-phone"></span></div>
-                    <div class="border-t border-red-100 pt-1 flex justify-between">
-                        <span>Aluminum Net Weight:</span> <span id="modal-al-net" class="font-semibold"></span>
+                <div class="space-y-2 text-xs sm:text-sm text-gray-700 bg-red-50/50 p-3 rounded-xl border border-red-100 text-left">
+                    <div><span class="font-semibold">Exchange ID to Assign:</span> <span id="modal-exchange-id" class="font-bold text-red-600"></span></div>
+                    <div><span class="font-semibold">Name:</span> <span id="modal-cust-name-display"></span></div>
+                    <div><span class="font-semibold">Mobile:</span> <span id="modal-cust-phone-display"></span></div>
+                    
+                    <div id="modal-al-block" class="border-t border-red-100 pt-1 space-y-1">
+                        <div class="flex justify-between"><span>Aluminum Gross:</span> <span id="modal-al-gross" class="font-semibold"></span></div>
+                        <div class="flex justify-between"><span>Handles Deduction:</span> <span id="modal-al-handles" class="font-semibold"></span></div>
+                        <div class="flex justify-between"><span>Aluminum Amount:</span> <span id="modal-al-cost" class="font-semibold"></span></div>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Aluminum Amount:</span> <span id="modal-al-cost" class="font-semibold"></span>
+                    
+                    <div id="modal-st-block" class="border-t border-red-100 pt-1 space-y-1">
+                        <div class="flex justify-between"><span>Steel Gross:</span> <span id="modal-st-gross" class="font-semibold"></span></div>
+                        <div class="flex justify-between"><span>Handles Deduction:</span> <span id="modal-st-handles" class="font-semibold"></span></div>
+                        <div class="flex justify-between"><span>Steel Amount:</span> <span id="modal-st-cost" class="font-semibold"></span></div>
                     </div>
-                    <div class="border-t border-red-100 pt-1 flex justify-between">
-                        <span>Steel Net Weight:</span> <span id="modal-st-net" class="font-semibold"></span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Steel Amount:</span> <span id="modal-st-cost" class="font-semibold"></span>
-                    </div>
-                    <div class="border-t border-red-200 pt-2 flex justify-between text-base font-bold text-red-700">
+
+                    <div class="border-t border-red-200 pt-2 flex justify-between text-sm sm:text-base font-bold text-red-700">
                         <span>Grand Total Payout:</span> <span id="modal-grand-total"></span>
                     </div>
                 </div>
 
                 <div class="flex space-x-3 pt-2">
-                    <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-semibold text-sm">Cancel</button>
-                    <button onclick="processSubmitOrder()" id="btn-process-submit" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-sm shadow">
-                        <span>Submit</span>
+                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-semibold text-sm active:scale-95">Cancel</button>
+                    <button type="button" onclick="processSubmitOrder()" id="btn-process-submit" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-sm shadow active:scale-95">
+                        <span>Submit Exchange</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Step 2 View: Post-Submission or Estimation Print Options -->
+            <!-- Step 2 View: Post-Submission or Estimation Options -->
             <div id="modal-step-print" class="hidden space-y-4">
                 <div id="modal-status-icon" class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                 </div>
                 <div>
-                    <h3 id="modal-print-title" class="text-lg font-bold text-gray-900">Estimation Ready</h3>
-                    <p id="modal-print-subtitle" class="text-xs font-semibold text-gray-500 mt-1">Choose format to print or submit estimation to Sheets:</p>
+                    <h3 id="modal-print-title" class="text-base sm:text-lg font-bold text-gray-900">Estimation Ready</h3>
+                    <p id="modal-print-subtitle" class="text-xs font-semibold text-gray-500 mt-1">Click below to submit estimation to Google Sheets:</p>
                 </div>
 
-                <!-- Numerical Summary Display inside popup -->
                 <div class="bg-amber-50/60 p-3 rounded-2xl border border-amber-200 text-left text-xs space-y-1.5 text-gray-700">
                     <div class="flex justify-between">
-                        <span>Estimation ID:</span>
-                        <span id="popup-est-id" class="font-bold text-amber-700">EST1</span>
+                        <span id="popup-id-label">Estimation ID:</span>
+                        <span id="popup-est-id" class="font-bold text-amber-700">Est1</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Aluminum (Net):</span>
-                        <span id="popup-al-net" class="font-bold text-gray-900">0.00 kg</span>
+
+                    <div id="popup-al-block" class="space-y-1 pt-1 border-t border-amber-100">
+                        <div class="flex justify-between"><span>Aluminum Gross:</span> <span id="popup-al-gross" class="font-bold text-gray-900"></span></div>
+                        <div class="flex justify-between"><span>Handles Deduction:</span> <span id="popup-al-handles" class="font-bold text-gray-900"></span></div>
+                        <div class="flex justify-between"><span>Aluminum Amount:</span> <span id="popup-al-amount" class="font-bold text-gray-900"></span></div>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Steel (Net):</span>
-                        <span id="popup-st-net" class="font-bold text-gray-900">0.00 kg</span>
+
+                    <div id="popup-st-block" class="space-y-1 pt-1 border-t border-amber-100">
+                        <div class="flex justify-between"><span>Steel Gross:</span> <span id="popup-st-gross" class="font-bold text-gray-900"></span></div>
+                        <div class="flex justify-between"><span>Handles Deduction:</span> <span id="popup-st-handles" class="font-bold text-gray-900"></span></div>
+                        <div class="flex justify-between"><span>Steel Amount:</span> <span id="popup-st-amount" class="font-bold text-gray-900"></span></div>
                     </div>
+
                     <div class="border-t border-amber-200 pt-1.5 flex justify-between font-bold text-sm text-red-700">
                         <span>Grand Total:</span>
                         <span id="popup-grand-total">₹0.00</span>
                     </div>
                 </div>
 
-                <!-- Dedicated Submit for Estimation Action in Popup -->
-                <button onclick="processSubmitEstimation()" id="btn-submit-est" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2">
+                <!-- Submit Estimation Action Button -->
+                <button type="button" onclick="processSubmitEstimation()" id="btn-submit-est" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2 active:scale-95">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                    <span>Submit Estimation to Sheets</span>
+                    <span>Submit Estimation</span>
                 </button>
 
-                <div class="flex items-center space-x-3 pt-1">
-                    <button onclick="triggerReceiptPrint('a4')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-sm flex items-center justify-center space-x-2 shadow transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                        <span>Print A4</span>
-                    </button>
-                    <button onclick="triggerReceiptPrint('thermal')" class="flex-1 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-1.5 shadow transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        <span>Print Thermal (80mm)</span>
-                    </button>
+                <!-- Print Options -->
+                <div id="print-options-container" class="space-y-3 pt-1">
+                    <div class="flex items-center space-x-3">
+                        <button type="button" onclick="triggerReceiptPrint('a4')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-sm flex items-center justify-center space-x-2 shadow transition active:scale-95">
+                            <span>Print A4</span>
+                        </button>
+                        <button type="button" onclick="triggerReceiptPrint('thermal')" class="flex-1 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-1.5 shadow transition active:scale-95">
+                            <span>Print Thermal (80mm)</span>
+                        </button>
+                    </div>
                 </div>
 
-                <button onclick="closeModalOnly()" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-semibold text-sm transition mt-1">Close</button>
+                <!-- Submit Another Form Button -->
+                <button type="button" onclick="resetForm()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-sm shadow transition mt-1 active:scale-95">Submit Another Form</button>
             </div>
-
         </div>
     </div>
 
-
-    <!-- ================= PRINT-ONLY RECEIPT LAYOUT ================= -->
+    <!-- PRINT-ONLY RECEIPT LAYOUT -->
     <div class="print-only max-w-2xl mx-auto p-3 border-2 border-red-700 rounded-lg receipt-container">
-        <!-- Watermark Image Element for Browser Printing -->
         <img src="./4L.png" alt="Watermark Logo" class="watermark-img">
-
         <div class="relative z-10">
-            <!-- Duplicate / Estimation Copy Banner -->
-            <div id="print-duplicate-badge" class="hidden text-center mb-1 bg-red-100 text-red-700 font-extrabold text-xs tracking-widest border border-red-300 py-0.5 rounded uppercase">
-                *** DUPLICATE COPY ***
-            </div>
+            <div id="print-duplicate-badge" class="hidden text-center mb-1 bg-red-100 text-red-700 font-extrabold text-xs tracking-widest border border-red-300 py-0.5 rounded uppercase">*** ESTIMATE RECEIPT - NOT SUBMITTED ***</div>
 
-            <!-- Header -->
             <div class="flex items-center justify-between border-b-2 border-red-600 pb-2 mb-2 thermal-border-bottom">
                 <div>
                     <h1 id="receipt-header-title" class="text-lg font-bold uppercase tracking-wide text-red-700 thermal-text-lg">Exchange Material Receipt</h1>
@@ -358,16 +291,15 @@
                 </div>
             </div>
 
-            <!-- Customer Header in Receipt -->
             <div class="bg-red-50/60 p-2 rounded border border-red-100 mb-3 text-xs thermal-text-sm thermal-border-bottom grid grid-cols-2 gap-2">
                 <div><span class="font-bold text-gray-700 thermal-bold">Name:</span> <span id="print-cust-name" class="font-semibold"></span></div>
                 <div><span class="font-bold text-gray-700 thermal-bold">Mobile:</span> <span id="print-cust-phone" class="font-semibold"></span></div>
             </div>
 
-            <!-- Side-By-Side / Thermal Stack Layout -->
-            <div class="grid grid-cols-2 gap-4 text-xs thermal-stack thermal-text-sm">
-                <!-- Aluminum Column -->
-                <div class="border-r pr-3 thermal-hide-col-border thermal-border-bottom">
+            <!-- Material Sections Container -->
+            <div id="print-materials-grid" class="grid grid-cols-2 gap-4 text-xs thermal-stack thermal-text-sm">
+                <!-- Aluminum Section -->
+                <div id="print-al-section" class="border-r pr-3 thermal-hide-col-border thermal-border-bottom">
                     <h2 class="font-bold text-xs border-b pb-1 mb-1.5 text-red-700 thermal-text-lg">Aluminum (₹150.00 / kg)</h2>
                     <div class="space-y-0.5 mb-2" id="print-al-items"></div>
                     <div class="border-t pt-1.5 space-y-0.5">
@@ -378,8 +310,8 @@
                     </div>
                 </div>
 
-                <!-- Steel Column -->
-                <div class="thermal-border-bottom">
+                <!-- Steel Section -->
+                <div id="print-st-section" class="thermal-border-bottom">
                     <h2 class="font-bold text-xs border-b pb-1 mb-1.5 text-gray-800 thermal-text-lg">Steel (₹50.00 / kg)</h2>
                     <div class="space-y-0.5 mb-2" id="print-st-items"></div>
                     <div class="border-t pt-1.5 space-y-0.5">
@@ -391,7 +323,6 @@
                 </div>
             </div>
 
-            <!-- Grand Total Footer with Barcode -->
             <div class="border-t-2 border-red-700 mt-3 pt-2 flex justify-between items-center thermal-border-bottom">
                 <div>
                     <span class="text-xs font-bold uppercase block text-gray-700 thermal-text-sm">Grand Total Exchange Payout:</span>
@@ -406,19 +337,83 @@
 
     <!-- App Logic -->
     <script>
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbwegrensVdnl4p8TvuwgK2LFy44xtkIOFJpPxVffI5rLF2msJRoZZj9wW5XK8_wzKvGow/exec";
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbzr33scr_LHP8FSVAUvkg7td0swjJzq21yu_4S5K29BFc1xQlUpdED-D5LkysyQmZIKVw/exec";
         const rates = { al: 150.00, st: 50.00 };
         let activeTab = 'al';
         let currentExchangeId = 'LNex1';
-        let currentEstId = 'EST1';
-        let localEstCounter = 1;
+        let currentEstId = 'Est1';
+        let convertingRowIndex = null;
         let searchResultsStore = [];
+        let displayLimit = 4;
         let isEstimationMode = false;
+        let isAppLoaded = false;
+        let searchTimeout = null;
 
         let data = {
             al: { weights: [0, 0], handles: 0 },
             st: { weights: [0, 0], handles: 0 }
         };
+
+        function unlockAppInputs() {
+            isAppLoaded = true;
+
+            const loader = document.getElementById('page-loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 200);
+            }
+
+            const searchModalBtn = document.getElementById('btn-search-modal');
+            searchModalBtn.disabled = false;
+            searchModalBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            const nameInput = document.getElementById('cust-name');
+            nameInput.disabled = false;
+            nameInput.placeholder = "Enter name";
+            nameInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            nameInput.classList.add('bg-white');
+
+            const phoneInput = document.getElementById('cust-phone');
+            phoneInput.disabled = false;
+            phoneInput.placeholder = "10 digit number";
+            phoneInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            phoneInput.classList.add('bg-white');
+
+            const addItemBtn = document.getElementById('btn-add-item');
+            addItemBtn.disabled = false;
+            addItemBtn.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+            addItemBtn.classList.add('bg-red-50', 'text-red-600');
+
+            const handleMinus = document.getElementById('btn-handle-minus');
+            handleMinus.disabled = false;
+            handleMinus.classList.remove('bg-gray-100', 'text-gray-300', 'cursor-not-allowed');
+            handleMinus.classList.add('bg-white', 'text-gray-700');
+
+            const handlePlus = document.getElementById('btn-handle-plus');
+            handlePlus.disabled = false;
+            handlePlus.classList.remove('bg-gray-100', 'text-gray-300', 'cursor-not-allowed');
+            handlePlus.classList.add('bg-white', 'text-gray-700');
+
+            const btnRefresh = document.getElementById('btn-refresh');
+            btnRefresh.disabled = false;
+            btnRefresh.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+            btnRefresh.classList.add('bg-gray-100', 'text-gray-700');
+
+            const btnEstimation = document.getElementById('btn-estimation');
+            btnEstimation.disabled = false;
+            btnEstimation.classList.remove('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+            btnEstimation.classList.add('bg-amber-600', 'hover:bg-amber-700', 'text-white');
+
+            const btnSubmit = document.getElementById('btn-submit');
+            btnSubmit.disabled = false;
+            btnSubmit.classList.remove('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+            btnSubmit.classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
+
+            render();
+            nameInput.focus();
+        }
 
         function validatePhoneInput(input) {
             input.value = input.value.replace(/\D/g, '');
@@ -432,57 +427,182 @@
             }
         }
 
-        window.handleIdCallback = function(data) {
-            if (data) {
-                if (data.nextId) {
-                    currentExchangeId = data.nextId;
-                    document.getElementById('app-exchange-id').innerText = currentExchangeId;
-                }
-                if (data.nextEstId) {
-                    currentEstId = data.nextEstId;
+        function handleNameKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const phoneInput = document.getElementById('cust-phone');
+                if (phoneInput) {
+                    phoneInput.focus();
+                    phoneInput.select();
                 }
             }
+        }
+
+        function handlePhoneKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const inputs = Array.from(document.querySelectorAll('.item-input'));
+                if (inputs.length > 0) {
+                    inputs[0].focus();
+                    inputs[0].select();
+                }
+            }
+        }
+
+        window.handleIdCallback = function(resData) {
+            if (resData) {
+                if (resData.nextId) {
+                    currentExchangeId = resData.nextId;
+                    document.getElementById('app-exchange-id').innerText = currentExchangeId;
+                }
+                if (resData.nextEstId) {
+                    currentEstId = resData.nextEstId;
+                }
+            }
+            unlockAppInputs();
         };
 
-        window.handleSearchCallback = function(data) {
-            const container = document.getElementById('search-results-container');
+        window.handleSearchCallback = function(res) {
             const searchBtn = document.getElementById('btn-search-trigger');
-            searchBtn.disabled = false;
-            searchBtn.innerText = "Search";
+            if (searchBtn) {
+                searchBtn.disabled = false;
+                searchBtn.innerText = "Search";
+            }
 
-            if (!data || !data.results || data.results.length === 0) {
-                searchResultsStore = [];
-                container.innerHTML = '<div class="text-center text-xs text-red-500 py-6">No matching records found</div>';
+            let records = [];
+            if (res) {
+                if (Array.isArray(res)) {
+                    records = res;
+                } else if (res.results && Array.isArray(res.results)) {
+                    records = res.results;
+                } else if (res.data && Array.isArray(res.data)) {
+                    records = res.data;
+                }
+            }
+
+            searchResultsStore = records;
+            displayLimit = 4;
+            renderSearchResults();
+        };
+
+        function onSearchInput() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                executeSearch();
+            }, 300); // 300ms debounce so it triggers instantly as user types without spamming requests
+        }
+
+        function renderSearchResults() {
+            const container = document.getElementById('search-results-container');
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+
+            let filteredRecords = searchResultsStore;
+            if (query !== '') {
+                filteredRecords = searchResultsStore.filter(r => {
+                    const recordId = (r.estId || r.exchangeId || r.id || '').toString().toLowerCase();
+                    const phone = (r.customerPhone || r.phone || '').toString().toLowerCase();
+                    const name = (r.customerName || r.name || '').toString().toLowerCase();
+                    return recordId.includes(query) || phone.includes(query) || name.includes(query);
+                });
+            }
+
+            if (filteredRecords.length === 0) {
+                container.innerHTML = `<div class="text-center text-xs text-gray-400 py-6">No matching records found</div>`;
                 return;
             }
 
-            searchResultsStore = data.results;
+            const visibleResults = filteredRecords.slice(0, displayLimit);
+            const hasMore = filteredRecords.length > displayLimit;
 
-            container.innerHTML = data.results.map((r, index) => {
-                const isEstRecord = (r.exchangeId && r.exchangeId.toString().startsWith('EST')) || (r.type === 'ESTIMATE');
+            let html = visibleResults.map((r, index) => {
+                const recordId = r.estId || r.exchangeId || r.id || 'N/A';
+                const isEstRecord = (r.estId && r.estId.toString().trim() !== "") || (r.type === 'ESTIMATE');
+                const isConverted = r.converted === true || r.converted === 'true' || (r.exchangeId && r.exchangeId.toString().trim() !== "");
+                
+                const alNetVal = parseFloat(r.alNet !== undefined ? r.alNet : (r.alGross || 0));
+                const stNetVal = parseFloat(r.stNet !== undefined ? r.stNet : (r.stGross || 0));
+                const alAmtVal = parseFloat(r.alAmount !== undefined ? r.alAmount : (alNetVal * 150));
+                const stAmtVal = parseFloat(r.stAmount !== undefined ? r.stAmount : (stNetVal * 50));
+                
+                let totalVal = parseFloat(r.grandTotal || r.amount || 0);
+                if (!totalVal || totalVal === 0 || isNaN(totalVal)) {
+                    totalVal = alAmtVal + stAmtVal;
+                }
+
+                const originalIndex = searchResultsStore.indexOf(r);
+
                 return `
-                <div class="${isEstRecord ? 'bg-amber-50/60 border-amber-200' : 'bg-red-50/50 border-red-100'} p-3.5 rounded-xl border text-xs space-y-2">
-                    <div class="flex justify-between font-bold ${isEstRecord ? 'text-amber-700' : 'text-red-700'} text-sm">
-                        <span>${r.exchangeId} ${isEstRecord ? '(ESTIMATE)' : ''}</span>
-                        <span>₹${parseFloat(r.grandTotal || 0).toFixed(2)}</span>
+                <div class="${isEstRecord && !isConverted ? 'bg-amber-50/60 border-amber-200' : 'bg-red-50/50 border-red-100'} p-3.5 rounded-xl border text-xs space-y-2">
+                    <div class="flex justify-between font-bold ${isEstRecord && !isConverted ? 'text-amber-700' : 'text-red-700'} text-sm">
+                        <span>${recordId} ${isEstRecord ? (isConverted ? '(ESTIMATE - SUBMITTED)' : '(ESTIMATE)') : '(EXCHANGE)'}</span>
+                        <span>₹${totalVal.toFixed(2)}</span>
                     </div>
-                    <div class="text-gray-700"><span class="font-semibold">Name:</span> ${r.customerName} (${r.customerPhone})</div>
-                    <div class="text-gray-500 text-[10px]"><span class="font-semibold">Date:</span> ${r.timestamp}</div>
-                    <div class="border-t ${isEstRecord ? 'border-amber-200' : 'border-red-100'} pt-1.5 flex justify-between text-gray-600">
-                        <span>AL Net: ${parseFloat(r.alNet || 0).toFixed(2)} kg (₹${parseFloat(r.alAmount || 0).toFixed(2)})</span>
-                        <span>Steel Net: ${parseFloat(r.stNet || 0).toFixed(2)} kg (₹${parseFloat(r.stAmount || 0).toFixed(2)})</span>
+                    <div class="text-gray-700"><span class="font-semibold">Name:</span> ${r.customerName || r.name || 'N/A'} (${r.customerPhone || r.phone || 'N/A'})</div>
+                    <div class="text-gray-500 text-[10px]"><span class="font-semibold">Date:</span> ${r.timestamp || r.date || 'N/A'}</div>
+                    <div class="border-t ${isEstRecord && !isConverted ? 'border-amber-200' : 'border-red-100'} pt-1.5 flex justify-between text-gray-600">
+                        <span>AL Net: ${alNetVal.toFixed(2)} kg (₹${alAmtVal.toFixed(2)})</span>
+                        <span>Steel Net: ${stNetVal.toFixed(2)} kg (₹${stAmtVal.toFixed(2)})</span>
                     </div>
                     <div class="pt-1 flex justify-end space-x-2">
-                        <button onclick="printSearchResult(${index}, 'a4')" class="bg-red-600 hover:bg-red-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1">
+                        ${isEstRecord && !isConverted ? `
+                            <button type="button" onclick="submitOrderFromEstimate(${originalIndex})" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1 active:scale-95">
+                                <span>Submit Order</span>
+                            </button>
+                        ` : ''}
+                        <button type="button" onclick="printSearchResult(${originalIndex}, 'a4')" class="bg-red-600 hover:bg-red-700 text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1 active:scale-95">
                             <span>A4 Print</span>
                         </button>
-                        <button onclick="printSearchResult(${index}, 'thermal')" class="bg-gray-800 hover:bg-black text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1">
+                        <button type="button" onclick="printSearchResult(${originalIndex}, 'thermal')" class="bg-gray-800 hover:bg-black text-white font-bold px-2.5 py-1 rounded-lg text-xs shadow inline-flex items-center space-x-1 active:scale-95">
                             <span>Thermal Print</span>
                         </button>
                     </div>
                 </div>
-            `}).join('');
-        };
+            `;
+            }).join('');
+
+            if (hasMore) {
+                html += `
+                    <div class="text-center pt-2 pb-1">
+                        <button type="button" onclick="loadMoreResults()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs border border-gray-300 shadow-sm transition active:scale-95">
+                            Load More (${filteredRecords.length - displayLimit} remaining)
+                        </button>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function loadMoreResults() {
+            displayLimit += 4;
+            renderSearchResults();
+        }
+
+        function submitOrderFromEstimate(index) {
+            const r = searchResultsStore[index];
+            if (!r) return;
+
+            convertingRowIndex = r.rowIndex;
+            populateFormFromRecord(r);
+            closeSearchModal();
+            handleSubmitOrder();
+        }
+
+        function populateFormFromRecord(r) {
+            document.getElementById('cust-name').value = r.customerName || r.name || '';
+            document.getElementById('cust-phone').value = r.customerPhone || r.phone || '';
+
+            const alNet = parseFloat(r.alNet || r.alGross || 0);
+            const stNet = parseFloat(r.stNet || r.stGross || 0);
+
+            data.al.weights = alNet > 0 ? [alNet] : [0, 0];
+            data.al.handles = 0;
+
+            data.st.weights = stNet > 0 ? [stNet] : [0, 0];
+            data.st.handles = 0;
+
+            render();
+        }
 
         function setPrintMode(mode) {
             document.body.classList.remove('print-mode-a4', 'print-mode-thermal');
@@ -499,43 +619,93 @@
 
             setPrintMode(mode);
 
-            const isEstRecord = (r.exchangeId && r.exchangeId.toString().startsWith('EST')) || (r.type === 'ESTIMATE');
+            const recordId = r.estId || r.exchangeId || r.id || 'N/A';
+            const isEstRecord = (r.estId && r.estId.toString().trim() !== "") || (r.type === 'ESTIMATE');
             isEstimationMode = isEstRecord;
 
             const duplicateBadge = document.getElementById('print-duplicate-badge');
             if (isEstRecord) {
-                duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT PAID ***";
+                duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT SUBMITTED ***";
                 document.getElementById('receipt-header-title').innerText = "Material Estimation Receipt";
+                document.getElementById('print-id-label').innerText = "Estimation ID";
             } else {
                 duplicateBadge.innerText = "*** DUPLICATE COPY ***";
                 document.getElementById('receipt-header-title').innerText = "Exchange Material Receipt";
+                document.getElementById('print-id-label').innerText = "Exchange ID";
             }
             duplicateBadge.classList.remove('hidden');
 
-            document.getElementById('print-exchange-id').innerText = r.exchangeId;
-            document.getElementById('print-cust-name').innerText = r.customerName;
-            document.getElementById('print-cust-phone').innerText = r.customerPhone;
-            document.getElementById('print-date').innerText = "Date: " + r.timestamp;
+            document.getElementById('print-exchange-id').innerText = recordId;
+            document.getElementById('print-cust-name').innerText = r.customerName || r.name || '';
+            document.getElementById('print-cust-phone').innerText = r.customerPhone || r.phone || '';
+            document.getElementById('print-date').innerText = "Date: " + (r.timestamp || r.date || '');
 
-            document.getElementById('print-al-items').innerHTML = `<div class="flex justify-between"><span>Net Summary:</span><span>${parseFloat(r.alNet || 0).toFixed(2)} kg</span></div>`;
-            document.getElementById('print-al-gross').innerText = `${parseFloat(r.alGross || 0).toFixed(2)} kg`;
-            document.getElementById('print-al-hc').innerText = "0";
-            document.getElementById('print-al-hd').innerText = "-0.00 kg";
-            document.getElementById('print-al-net').innerText = `${parseFloat(r.alNet || 0).toFixed(2)} kg`;
-            document.getElementById('print-al-cost').innerText = `₹${parseFloat(r.alAmount || 0).toFixed(2)}`;
+            const alGross = parseFloat(r.alGross || 0);
+            const alNet = parseFloat(r.alNet !== undefined ? r.alNet : alGross);
+            const alAmt = parseFloat(r.alAmount !== undefined ? r.alAmount : (alNet * 150));
+            const stGross = parseFloat(r.stGross || 0);
+            const stNet = parseFloat(r.stNet !== undefined ? r.stNet : stGross);
+            const stAmt = parseFloat(r.stAmount !== undefined ? r.stAmount : (stNet * 50));
 
-            document.getElementById('print-st-items').innerHTML = `<div class="flex justify-between"><span>Net Summary:</span><span>${parseFloat(r.stNet || 0).toFixed(2)} kg</span></div>`;
-            document.getElementById('print-st-gross').innerText = `${parseFloat(r.stGross || 0).toFixed(2)} kg`;
-            document.getElementById('print-st-hc').innerText = "0";
-            document.getElementById('print-st-hd').innerText = "-0.00 kg";
-            document.getElementById('print-st-net').innerText = `${parseFloat(r.stNet || 0).toFixed(2)} kg`;
-            document.getElementById('print-st-cost').innerText = `₹${parseFloat(r.stAmount || 0).toFixed(2)}`;
+            const alSection = document.getElementById('print-al-section');
+            const stSection = document.getElementById('print-st-section');
+            const materialsGrid = document.getElementById('print-materials-grid');
 
-            const grandTotal = parseFloat(r.grandTotal || 0);
+            if (alGross > 0 || alNet > 0 || alAmt > 0) {
+                alSection.style.display = 'block';
+                const nonZeroAlWeights = [alNet].filter(w => w > 0);
+                document.getElementById('print-al-items').innerHTML = nonZeroAlWeights.length > 0 
+                    ? nonZeroAlWeights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('')
+                    : `<div class="flex justify-between text-gray-400 italic"><span>Aluminum items</span></div>`;
+
+                document.getElementById('print-al-gross').innerText = `${(alGross > 0 ? alGross : alNet).toFixed(2)} kg`;
+                document.getElementById('print-al-hc').innerText = "0";
+                document.getElementById('print-al-hd').innerText = "-0.00 kg";
+                document.getElementById('print-al-net').innerText = `${alNet.toFixed(2)} kg`;
+                document.getElementById('print-al-cost').innerText = `₹${alAmt.toFixed(2)}`;
+            } else {
+                alSection.style.display = 'none';
+            }
+
+            if (stGross > 0 || stNet > 0 || stAmt > 0) {
+                stSection.style.display = 'block';
+                const nonZeroStWeights = [stNet].filter(w => w > 0);
+                document.getElementById('print-st-items').innerHTML = nonZeroStWeights.length > 0 
+                    ? nonZeroStWeights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('')
+                    : `<div class="flex justify-between text-gray-400 italic"><span>Steel items</span></div>`;
+
+                document.getElementById('print-st-gross').innerText = `${(stGross > 0 ? stGross : stNet).toFixed(2)} kg`;
+                document.getElementById('print-st-hc').innerText = "0";
+                document.getElementById('print-st-hd').innerText = "-0.00 kg";
+                document.getElementById('print-st-net').innerText = `${stNet.toFixed(2)} kg`;
+                document.getElementById('print-st-cost').innerText = `₹${stAmt.toFixed(2)}`;
+            } else {
+                stSection.style.display = 'none';
+            }
+
+            const hasAl = (alGross > 0 || alNet > 0 || alAmt > 0);
+            const hasSt = (stGross > 0 || stNet > 0 || stAmt > 0);
+
+            if (hasAl && hasSt) {
+                materialsGrid.className = "grid grid-cols-2 gap-4 text-xs thermal-stack thermal-text-sm";
+                alSection.className = "border-r pr-3 thermal-hide-col-border thermal-border-bottom";
+            } else {
+                materialsGrid.className = "grid grid-cols-1 gap-4 text-xs thermal-stack thermal-text-sm";
+                alSection.className = "thermal-border-bottom";
+                stSection.className = "thermal-border-bottom";
+            }
+
+            let grandTotal = parseFloat(r.grandTotal || r.amount || 0);
+            if (!grandTotal || grandTotal === 0 || isNaN(grandTotal)) {
+                grandTotal = alAmt + stAmt;
+            }
             document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
 
             renderSimpleBarcode(grandTotal);
-            window.print();
+            closeSearchModal();
+            setTimeout(() => {
+                window.print();
+            }, 300);
         }
 
         function renderSimpleBarcode(val) {
@@ -563,54 +733,92 @@
             }
         }
 
-        function fetchNextExchangeId() {
-            if (!scriptUrl) return;
+        function fetchNextIds() {
+            if (!scriptUrl) {
+                unlockAppInputs();
+                return;
+            }
             const oldScript = document.getElementById('jsonp-script');
             if (oldScript) oldScript.remove();
 
             const script = document.createElement('script');
             script.id = 'jsonp-script';
-            script.src = scriptUrl + '?callback=handleIdCallback&v=128&t=' + new Date().getTime();
+            script.src = scriptUrl + '?callback=handleIdCallback&v=140&t=' + new Date().getTime();
+            
+            script.onerror = () => {
+                unlockAppInputs();
+            };
+
             document.body.appendChild(script);
+
+            setTimeout(() => {
+                if (!isAppLoaded) {
+                    unlockAppInputs();
+                }
+            }, 3000);
         }
 
         function executeSearch() {
-            const query = document.getElementById('search-input').value.trim();
-            if (!query) return;
-
             const searchBtn = document.getElementById('btn-search-trigger');
-            searchBtn.disabled = true;
-            searchBtn.innerText = "Searching...";
+            if (searchBtn) {
+                searchBtn.disabled = true;
+                searchBtn.innerText = "Searching...";
+            }
 
             const oldScript = document.getElementById('search-script');
             if (oldScript) oldScript.remove();
 
             const script = document.createElement('script');
             script.id = 'search-script';
-            script.src = scriptUrl + '?action=search&query=' + encodeURIComponent(query) + '&callback=handleSearchCallback&v=128&t=' + new Date().getTime();
+            script.src = scriptUrl + '?action=search&query=&callback=handleSearchCallback&v=140&t=' + new Date().getTime();
+            
+            script.onerror = () => {
+                if (searchBtn) {
+                    searchBtn.disabled = false;
+                    searchBtn.innerText = "Search";
+                }
+                document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-red-500 py-6">Connection error loading records. Please check your Google Apps Script URL.</div>';
+            };
+
             document.body.appendChild(script);
         }
 
         function openSearchModal() {
             document.getElementById('search-modal').classList.remove('hidden');
+            setTimeout(() => {
+                const searchInput = document.getElementById('search-input');
+                searchInput.focus();
+                searchInput.value = '';
+            }, 100);
+
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>';
+            
+            executeSearch();
         }
 
         function closeSearchModal() {
             document.getElementById('search-modal').classList.add('hidden');
             document.getElementById('search-input').value = '';
-            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Enter query and click Search</div>';
+            document.getElementById('search-results-container').innerHTML = '<div class="text-center text-xs text-gray-400 py-6">Loading recent records...</div>';
             searchResultsStore = [];
+            
+            setTimeout(() => {
+                const nameInput = document.getElementById('cust-name');
+                if (nameInput) {
+                    nameInput.focus();
+                }
+            }, 50);
         }
 
         function init() {
-            fetchNextExchangeId();
             render();
+            fetchNextIds();
         }
 
         function switchTab(tab) {
             activeTab = tab;
-            document.getElementById('tab-al').className = tab === 'al' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600";
-            document.getElementById('tab-st').className = tab === 'st' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600";
+            document.getElementById('tab-al').className = tab === 'al' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600 text-sm sm:text-base" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600 text-sm sm:text-base";
+            document.getElementById('tab-st').className = tab === 'st' ? "flex-1 py-3 font-semibold text-center border-b-2 border-red-600 text-red-600 text-sm sm:text-base" : "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-500 hover:text-red-600 text-sm sm:text-base";
             document.getElementById('item-label').innerText = tab === 'al' ? "Aluminum Item Weights (kg)" : "Steel Item Weights (kg)";
             render();
         }
@@ -619,6 +827,8 @@
             const container = document.getElementById('item-list');
             container.innerHTML = '';
             
+            const isLocked = !isAppLoaded;
+
             if (data[activeTab].weights.length === 0) {
                 container.innerHTML = '<div class="text-xs text-gray-400 italic py-2 text-center">No items added. Click "+ Add Item" above.</div>';
             } else {
@@ -627,8 +837,8 @@
                     div.className = "flex items-center space-x-2";
                     div.innerHTML = `
                         <span class="text-xs text-gray-400 font-medium w-12">Item ${idx + 1}</span>
-                        <input type="number" step="0.01" value="${w === 0 ? '' : w}" oninput="updateWeight(${idx}, this.value)" placeholder="0.00" class="flex-1 border border-gray-200 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none">
-                        <button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>
+                        <input type="text" ${isLocked ? 'disabled' : ''} inputmode="decimal" pattern="[0-9]*" value="${w === 0 ? '' : w}" oninput="updateWeight(${idx}, this.value)" onkeydown="handleItemKeydown(event, ${idx})" placeholder="0.00" class="flex-1 border border-gray-200 rounded-xl p-2.5 text-sm text-gray-800 focus:ring-2 focus:ring-red-500 focus:outline-none ${isLocked ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} item-input">
+                        <button type="button" ${isLocked ? 'disabled' : ''} onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 font-bold px-3 py-2">✕</button>
                     `;
                     container.appendChild(div);
                 });
@@ -638,22 +848,66 @@
             calculate();
         }
 
+        function handleItemKeydown(event, currentIndex) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const inputs = Array.from(document.querySelectorAll('.item-input'));
+                const nextIndex = currentIndex + 1;
+                
+                if (nextIndex < inputs.length) {
+                    inputs[nextIndex].focus();
+                    inputs[nextIndex].select();
+                } else if (currentIndex === 1) {
+                    const handlePlusBtn = document.getElementById('btn-handle-plus');
+                    if (handlePlusBtn) {
+                        handlePlusBtn.focus();
+                    }
+                } else {
+                    addItem();
+                    const updatedInputs = Array.from(document.querySelectorAll('.item-input'));
+                    if (updatedInputs.length > inputs.length) {
+                        updatedInputs[updatedInputs.length - 1].focus();
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const handlePlusBtn = document.getElementById('btn-handle-plus');
+            if (handlePlusBtn) {
+                handlePlusBtn.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        updateHandles(1);
+                    }
+                });
+            }
+        });
+
         function addItem() {
+            if (!isAppLoaded) return;
             data[activeTab].weights.push(0);
             render();
+            const inputs = document.querySelectorAll('#item-list input');
+            if (inputs.length > 0) {
+                inputs[inputs.length - 1].focus();
+            }
         }
 
         function removeItem(idx) {
+            if (!isAppLoaded) return;
             data[activeTab].weights.splice(idx, 1);
             render();
         }
 
         function updateWeight(idx, val) {
+            if (!isAppLoaded) return;
             data[activeTab].weights[idx] = parseFloat(val) || 0;
             calculate();
         }
 
         function updateHandles(change) {
+            if (!isAppLoaded) return;
             data[activeTab].handles = Math.max(0, data[activeTab].handles + change);
             document.getElementById('handle-count').innerText = data[activeTab].handles;
             calculate();
@@ -676,40 +930,119 @@
 
             document.getElementById('print-date').innerText = "Date: " + new Date().toLocaleString();
 
-            document.getElementById('print-al-items').innerHTML = data.al.weights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('');
-            document.getElementById('print-al-gross').innerText = `${al.gross.toFixed(2)} kg`;
-            document.getElementById('print-al-hc').innerText = data.al.handles;
-            document.getElementById('print-al-hd').innerText = `-${al.hd.toFixed(2)} kg`;
-            document.getElementById('print-al-net').innerText = `${al.net.toFixed(2)} kg`;
-            document.getElementById('print-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
+            const alSection = document.getElementById('print-al-section');
+            const stSection = document.getElementById('print-st-section');
+            const materialsGrid = document.getElementById('print-materials-grid');
 
-            document.getElementById('print-st-items').innerHTML = data.st.weights.map((w, i) => `<div class="flex justify-between"><span>Item ${i+1}:</span><span>${w.toFixed(2)} kg</span></div>`).join('');
-            document.getElementById('print-st-gross').innerText = `${st.gross.toFixed(2)} kg`;
-            document.getElementById('print-st-hc').innerText = data.st.handles;
-            document.getElementById('print-st-hd').innerText = `-${st.hd.toFixed(2)} kg`;
-            document.getElementById('print-st-net').innerText = `${st.net.toFixed(2)} kg`;
-            document.getElementById('print-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+            if (al.gross > 0) {
+                alSection.style.display = 'block';
+                const validAlWeights = data.al.weights.map((w, i) => ({w, i})).filter(item => item.w > 0);
+                document.getElementById('print-al-items').innerHTML = validAlWeights.length > 0 
+                    ? validAlWeights.map(item => `<div class="flex justify-between"><span>Item ${item.i + 1}:</span><span>${item.w.toFixed(2)} kg</span></div>`).join('')
+                    : `<div class="flex justify-between text-gray-400 italic"><span>No Aluminum items</span></div>`;
+
+                document.getElementById('print-al-gross').innerText = `${al.gross.toFixed(2)} kg`;
+                document.getElementById('print-al-hc').innerText = data.al.handles;
+                document.getElementById('print-al-hd').innerText = `-${al.hd.toFixed(2)} kg`;
+                document.getElementById('print-al-net').innerText = `${al.net.toFixed(2)} kg`;
+                document.getElementById('print-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
+            } else {
+                alSection.style.display = 'none';
+            }
+
+            if (st.gross > 0) {
+                stSection.style.display = 'block';
+                const validStWeights = data.st.weights.map((w, i) => ({w, i})).filter(item => item.w > 0);
+                document.getElementById('print-st-items').innerHTML = validStWeights.length > 0 
+                    ? validStWeights.map(item => `<div class="flex justify-between"><span>Item ${item.i + 1}:</span><span>${item.w.toFixed(2)} kg</span></div>`).join('')
+                    : `<div class="flex justify-between text-gray-400 italic"><span>No Steel items</span></div>`;
+
+                document.getElementById('print-st-gross').innerText = `${st.gross.toFixed(2)} kg`;
+                document.getElementById('print-st-hc').innerText = data.st.handles;
+                document.getElementById('print-st-hd').innerText = `-${st.hd.toFixed(2)} kg`;
+                document.getElementById('print-st-net').innerText = `${st.net.toFixed(2)} kg`;
+                document.getElementById('print-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+            } else {
+                stSection.style.display = 'none';
+            }
+
+            if (al.gross > 0 && st.gross > 0) {
+                materialsGrid.className = "grid grid-cols-2 gap-4 text-xs thermal-stack thermal-text-sm";
+                alSection.className = "border-r pr-3 thermal-hide-col-border thermal-border-bottom";
+            } else {
+                materialsGrid.className = "grid grid-cols-1 gap-4 text-xs thermal-stack thermal-text-sm";
+                alSection.className = "thermal-border-bottom";
+                stSection.className = "thermal-border-bottom";
+            }
 
             const grandTotal = al.cost + st.cost;
             document.getElementById('print-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
 
-            document.getElementById('popup-est-id').innerText = currentEstId;
-            document.getElementById('popup-al-net').innerText = `${al.net.toFixed(2)} kg (₹${al.cost.toFixed(2)})`;
-            document.getElementById('popup-st-net').innerText = `${st.net.toFixed(2)} kg (₹${st.cost.toFixed(2)})`;
+            document.getElementById('popup-id-label').innerText = isEstimationMode ? "Estimation ID:" : "Exchange ID:";
+            document.getElementById('popup-est-id').innerText = isEstimationMode ? currentEstId : currentExchangeId;
+            
+            const modalAlBlock = document.getElementById('modal-al-block');
+            const modalStBlock = document.getElementById('modal-st-block');
+            if (al.gross > 0) {
+                modalAlBlock.style.display = 'block';
+                document.getElementById('modal-al-gross').innerText = `${al.gross.toFixed(2)} kg`;
+                document.getElementById('modal-al-handles').innerText = `${data.al.handles} hdl (-${al.hd.toFixed(2)} kg) = ${al.net.toFixed(2)} kg net`;
+                document.getElementById('modal-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
+            } else {
+                modalAlBlock.style.display = 'none';
+            }
+
+            if (st.gross > 0) {
+                modalStBlock.style.display = 'block';
+                document.getElementById('modal-st-gross').innerText = `${st.gross.toFixed(2)} kg`;
+                document.getElementById('modal-st-handles').innerText = `${data.st.handles} hdl (-${al.hd.toFixed(2)} kg) = ${st.net.toFixed(2)} kg net`;
+                document.getElementById('modal-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+            } else {
+                modalStBlock.style.display = 'none';
+            }
+
+            const popupAlBlock = document.getElementById('popup-al-block');
+            const popupStBlock = document.getElementById('popup-st-block');
+            if (al.gross > 0) {
+                popupAlBlock.style.display = 'block';
+                document.getElementById('popup-al-gross').innerText = `${al.gross.toFixed(2)} kg`;
+                document.getElementById('popup-al-handles').innerText = `${data.al.handles} hdl (-${al.hd.toFixed(2)} kg) = ${al.net.toFixed(2)} kg net`;
+                document.getElementById('popup-al-amount').innerText = `₹${al.cost.toFixed(2)}`;
+            } else {
+                popupAlBlock.style.display = 'none';
+            }
+
+            if (st.gross > 0) {
+                popupStBlock.style.display = 'block';
+                document.getElementById('popup-st-gross').innerText = `${st.gross.toFixed(2)} kg`;
+                document.getElementById('popup-st-handles').innerText = `${data.st.handles} hdl (-${al.hd.toFixed(2)} kg) = ${st.net.toFixed(2)} kg net`;
+                document.getElementById('popup-st-amount').innerText = `₹${st.cost.toFixed(2)}`;
+            } else {
+                popupStBlock.style.display = 'none';
+            }
+
             document.getElementById('popup-grand-total').innerText = `₹${grandTotal.toFixed(2)}`;
 
             renderSimpleBarcode(grandTotal);
         }
 
-        // Action 1: Get Estimation Mode
         function handleGetEstimation() {
+            if (!isAppLoaded) return;
+            const al = computeMaterial('al');
+            const st = computeMaterial('st');
+
+            if (al.gross === 0 && st.gross === 0) {
+                alert("Error: Please enter at least one item weight before getting an estimation.");
+                return;
+            }
+
             isEstimationMode = true;
+            convertingRowIndex = null;
             const name = document.getElementById('cust-name').value.trim() || 'Valued Customer';
             const phone = document.getElementById('cust-phone').value.trim() || 'N/A';
 
-            // Duplicate/Estimate header settings
             const duplicateBadge = document.getElementById('print-duplicate-badge');
-            duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT PAID ***";
+            duplicateBadge.innerText = "*** ESTIMATE RECEIPT - NOT SUBMITTED ***";
             duplicateBadge.classList.remove('hidden');
 
             document.getElementById('receipt-header-title').innerText = "Material Estimation Receipt";
@@ -719,22 +1052,23 @@
             document.getElementById('print-cust-phone').innerText = phone;
             calculate();
 
-            // Prepare Modal for Estimation Print & Submit
             document.getElementById('modal-status-icon').className = "w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto";
             document.getElementById('modal-print-title').innerText = "Estimation Ready";
-            document.getElementById('modal-print-subtitle').innerText = `Estimation ID: ${currentEstId}. Submit to Sheets or choose print format:`;
+            document.getElementById('modal-print-subtitle').innerText = `Estimation ID: ${currentEstId}. Click below to submit to Google Sheets:`;
 
             const btnSubmitEst = document.getElementById('btn-submit-est');
             btnSubmitEst.classList.remove('hidden');
             btnSubmitEst.disabled = false;
-            btnSubmitEst.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg><span>Submit Estimation to Sheets</span>`;
+            btnSubmitEst.className = "w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2";
+            btnSubmitEst.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg><span>Submit Estimation</span>`;
+
+            document.getElementById('print-options-container').classList.remove('hidden');
 
             document.getElementById('modal-step-review').classList.add('hidden');
             document.getElementById('modal-step-print').classList.remove('hidden');
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        // Submit Estimation to Sheets Function
         async function processSubmitEstimation() {
             const name = document.getElementById('cust-name').value.trim() || 'Valued Customer';
             const phone = document.getElementById('cust-phone').value.trim() || 'N/A';
@@ -751,7 +1085,7 @@
                 try {
                     const formData = new URLSearchParams();
                     formData.append('timestamp', new Date().toLocaleString());
-                    formData.append('exchangeId', currentEstId); // Stored in Exchange ID Column
+                    formData.append('estId', currentEstId);
                     formData.append('customerName', name);
                     formData.append('customerPhone', phone);
                     formData.append('alGross', al.gross);
@@ -774,17 +1108,18 @@
                 }
             }
 
-            submitEstBtn.innerText = "✓ Estimation Submitted to Sheets";
-            submitEstBtn.className = "w-full py-3 bg-green-600 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2";
+            submitEstBtn.innerText = "✓ Estimation Submitted Successfully";
+            submitEstBtn.className = "w-full py-3 bg-green-600 text-white rounded-2xl font-bold text-sm shadow transition flex items-center justify-center space-x-2 mb-2";
+            submitEstBtn.disabled = true;
 
-            // Increment local sequence and fetch next ID
-            localEstCounter++;
-            currentEstId = "EST" + localEstCounter;
-            fetchNextExchangeId();
+            document.getElementById('modal-print-subtitle').innerText = `Estimation ID ${currentEstId} saved. Choose print format:`;
+            document.getElementById('print-options-container').classList.remove('hidden');
+
+            fetchNextIds();
         }
 
-        // Action 2: Submit Order Mode
         function handleSubmitOrder() {
+            if (!isAppLoaded) return;
             isEstimationMode = false;
             const name = document.getElementById('cust-name').value.trim();
             const phone = document.getElementById('cust-phone').value.trim();
@@ -802,13 +1137,17 @@
             const al = computeMaterial('al');
             const st = computeMaterial('st');
 
+            if (al.gross === 0 && st.gross === 0) {
+                alert("Error: Please enter at least one item weight before submitting an order.");
+                return;
+            }
+
             document.getElementById('modal-exchange-id').innerText = currentExchangeId;
-            document.getElementById('modal-cust-name').innerText = name;
-            document.getElementById('modal-cust-phone').innerText = phone;
-            document.getElementById('modal-al-net').innerText = `${al.net.toFixed(2)} kg`;
-            document.getElementById('modal-al-cost').innerText = `₹${al.cost.toFixed(2)}`;
-            document.getElementById('modal-st-net').innerText = `${st.net.toFixed(2)} kg`;
-            document.getElementById('modal-st-cost').innerText = `₹${st.cost.toFixed(2)}`;
+            document.getElementById('modal-cust-name-display').innerText = name;
+            document.getElementById('modal-cust-phone-display').innerText = phone;
+            
+            calculate();
+
             document.getElementById('modal-grand-total').innerText = `₹${(al.cost + st.cost).toFixed(2)}`;
 
             document.getElementById('modal-step-review').classList.remove('hidden');
@@ -818,13 +1157,7 @@
 
         function closeModal() {
             document.getElementById('confirm-modal').classList.add('hidden');
-        }
-
-        function closeModalOnly() {
-            document.getElementById('confirm-modal').classList.add('hidden');
-            if (!isEstimationMode) {
-                resetForm();
-            }
+            convertingRowIndex = null;
         }
 
         async function processSubmitOrder() {
@@ -845,77 +1178,72 @@
 
             const submitBtn = document.getElementById('btn-process-submit');
             submitBtn.disabled = true;
-            submitBtn.innerText = "Submitting...";
+            submitBtn.innerText = "Submitting to Sheets...";
 
-            if (scriptUrl) {
-                try {
-                    const formData = new URLSearchParams();
-                    formData.append('timestamp', new Date().toLocaleString());
-                    formData.append('exchangeId', currentExchangeId);
-                    formData.append('customerName', name);
-                    formData.append('customerPhone', phone);
-                    formData.append('alGross', al.gross);
-                    formData.append('alNet', al.net);
-                    formData.append('alAmount', al.cost);
-                    formData.append('stGross', st.gross);
-                    formData.append('stNet', st.net);
-                    formData.append('stAmount', st.cost);
-                    formData.append('grandTotal', grandTotal);
-                    formData.append('type', 'TRANSACTION');
+            const submissionPromise = (async () => {
+                if (scriptUrl) {
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('timestamp', new Date().toLocaleString());
+                        formData.append('exchangeId', currentExchangeId);
+                        formData.append('customerName', name);
+                        formData.append('customerPhone', phone);
+                        formData.append('alGross', al.gross);
+                        formData.append('alNet', al.net);
+                        formData.append('alAmount', al.cost);
+                        formData.append('stGross', st.gross);
+                        formData.append('stNet', st.net);
+                        formData.append('stAmount', st.cost);
+                        formData.append('grandTotal', grandTotal);
+                        formData.append('type', 'TRANSACTION');
+                        
+                        if (convertingRowIndex) {
+                            formData.append('convertFromRow', convertingRowIndex);
+                        }
 
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: formData.toString()
-                    });
-                } catch (err) {
-                    console.error("Error saving to Google Sheets:", err);
+                        await fetch(scriptUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData.toString()
+                        });
+                    } catch (err) {
+                        console.error("Error saving to Google Sheets:", err);
+                    }
                 }
-            }
+            })();
+
+            const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+            await Promise.race([submissionPromise, timeoutPromise]);
 
             submitBtn.disabled = false;
-            submitBtn.innerText = "Submit";
+            submitBtn.innerText = "Submit Exchange";
 
             document.getElementById('btn-submit-est').classList.add('hidden');
+            document.getElementById('print-options-container').classList.remove('hidden');
+            
             document.getElementById('modal-status-icon').className = "w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto";
             document.getElementById('modal-print-title').innerText = "Transaction Saved!";
-            document.getElementById('modal-print-subtitle').innerText = "Choose print paper format to issue receipt:";
+            document.getElementById('modal-print-subtitle').innerText = `Exchange ID: ${currentExchangeId}. Choose print format:`;
 
             document.getElementById('modal-step-review').classList.add('hidden');
             document.getElementById('modal-step-print').classList.remove('hidden');
+            
+            fetchNextIds();
         }
 
         function triggerReceiptPrint(mode) {
             setPrintMode(mode);
             calculate();
-            window.print();
             
-            closeModal();
-            if (!isEstimationMode) {
-                setTimeout(() => {
-                    resetForm();
-                }, 500);
-            }
-        }
-
-        function finishOrderWithoutPrint() {
-            closeModalOnly();
+            setTimeout(() => {
+                window.print();
+                convertingRowIndex = null;
+            }, 400);
         }
 
         function resetForm() {
-            document.getElementById('cust-name').value = '';
-            document.getElementById('cust-phone').value = '';
-            const errorMsg = document.getElementById('phone-error');
-            if (errorMsg) errorMsg.classList.add('hidden');
-
-            data = {
-                al: { weights: [0, 0], handles: 0 },
-                st: { weights: [0, 0], handles: 0 }
-            };
-
-            fetchNextExchangeId();
-            render();
+            window.location.reload();
         }
 
         init();
